@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="luxury">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel & Executive Dashboard - Titip Shoopy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="min-h-screen bg-base-200 text-base-content pb-12">
+
+    <!-- LOGIN BOX ADMIN -->
+    <div id="admin-login-box" class="min-h-screen flex items-center justify-center p-4">
+        <div class="card bg-base-100 shadow-xl border border-primary/20 w-full max-w-md p-6 space-y-4">
+            <div class="text-center">
+                <h1 class="text-2xl font-black text-primary">Titip Shoopy Admin</h1>
+                <p class="text-xs opacity-70">Masukan kredensial admin untuk mengakses Executive Dashboard</p>
+            </div>
+            <div class="form-control space-y-3">
+                <div>
+                    <label class="label text-xs font-bold">Username Admin</label>
+                    <input type="text" id="admin-user" placeholder="yasir" class="input input-bordered w-full text-sm">
+                </div>
+                <div>
+                    <label class="label text-xs font-bold">Password Admin</label>
+                    <input type="password" id="admin-pass" placeholder="••••••••" class="input input-bordered w-full text-sm">
+                </div>
+                <button onclick="loginAdmin()" class="btn btn-primary w-full shadow-lg font-bold">Masuk Executive Dashboard</button>
+            </div>
+            <div class="text-center pt-2">
+                <a href="/" class="text-xs link link-neutral">← Kembali ke Katalog Utama</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN ADMIN CONTENT & EXECUTIVE DASHBOARD -->
+    <div id="admin-main-content" class="hidden">
+        <header class="navbar bg-base-100 shadow-md px-6 sticky top-0 z-40 border-b border-primary/20">
+            <div class="flex-1">
+                <h1 class="text-lg font-bold text-primary flex items-center gap-2">
+                    <span>👑 Titip Shoopy</span>
+                    <span class="badge badge-primary font-mono text-[10px]">Executive Suite</span>
+                </h1>
+            </div>
+            <div class="flex-none gap-2">
+                <button onclick="loadExecutiveDashboard()" class="btn btn-ghost btn-xs font-bold">🔄 Refresh Stats</button>
+                <button onclick="logoutAdmin()" class="btn btn-error btn-xs font-bold">Logout</button>
+            </div>
+        </header>
+
+        <main class="max-w-5xl mx-auto p-4 space-y-6">
+
+            <!-- TAB NAVIGASI UTAMA -->
+            <div class="role-tablist tabs tabs-boxed bg-base-100 p-1 shadow-sm font-bold text-xs sm:text-sm overflow-x-auto">
+                <a role="tab" onclick="switchTab('dashboard')" id="tab-dashboard" class="tab tab-active">📊 Dashboard Executive</a>
+                <a role="tab" onclick="switchTab('settings')" id="tab-settings" class="tab">⚙️ Master Settings</a>
+                <a role="tab" onclick="switchTab('runners')" id="tab-runners" class="tab">🏃 Verifikasi & Zoning Runner</a>
+                <a role="tab" onclick="switchTab('locations')" id="tab-locations" class="tab">📍 Master Lokasi</a>
+                <a role="tab" onclick="switchTab('merchants')" id="tab-merchants" class="tab">🏪 Merchant & Menu</a>
+                <a role="tab" onclick="switchTab('shoopers')" id="tab-shoopers" class="tab">👥 Daftar Shooper</a>
+            </div>
+
+            <!-- TAB EXECUTIVE DASHBOARD (DEFAULT VIEW) -->
+            <section id="sec-dashboard" class="space-y-6">
+                
+                <!-- EXECUTIVE KPI CARDS -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <!-- CARD 1: OMSET GMV -->
+                    <div class="card bg-base-100 p-4 border border-emerald-500/30 shadow-md space-y-1">
+                        <span class="text-[11px] font-bold opacity-70">Total Revenue GMV (Lunas)</span>
+                        <p id="stat-gross-gmv" class="text-xl sm:text-2xl font-black text-emerald-500">Rp 0</p>
+                        <p class="text-[10px] opacity-60">Transaksi COD Selesai</p>
+                    </div>
+
+                    <!-- CARD 2: PROFIT BERSIH APLIKASI -->
+                    <div class="card bg-base-100 p-4 border border-amber-500/30 shadow-md space-y-1">
+                        <span class="text-[11px] font-bold opacity-70">Profit Platform (Fee App)</span>
+                        <p id="stat-net-profit" class="text-xl sm:text-2xl font-black text-amber-400">Rp 0</p>
+                        <p class="text-[10px] opacity-60">Service Fee + Fee Jastip Porsi</p>
+                    </div>
+
+                    <!-- CARD 3: TOTAL PESANAN -->
+                    <div class="card bg-base-100 p-4 border border-info/30 shadow-md space-y-1">
+                        <span class="text-[11px] font-bold opacity-70">Total Pesanan Diproses</span>
+                        <p id="stat-total-orders" class="text-xl sm:text-2xl font-black text-info">0</p>
+                        <p class="text-[10px] opacity-60"><span id="stat-completed-orders">0</span> Selesai • <span id="stat-pending-orders" class="text-warning font-bold">0</span> Pending</p>
+                    </div>
+
+                    <!-- CARD 4: PORSI MAKANAN TERJUAL -->
+                    <div class="card bg-base-100 p-4 border border-primary/30 shadow-md space-y-1">
+                        <span class="text-[11px] font-bold opacity-70">Volume Porsi Makanan</span>
+                        <p id="stat-items-sold" class="text-xl sm:text-2xl font-black text-primary">0 Item</p>
+                        <p class="text-[10px] opacity-60">Terjual dari Mitra Warung</p>
+                    </div>
+                </div>
+
+                <!-- EXECUTIVE LEADERBOARD TABLES (2 COLUMNS) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <!-- TOP SHOOPER LOYAL -->
+                    <div class="card bg-base-100 p-4 border border-primary/20 shadow-md space-y-3">
+                        <h3 class="font-extrabold text-sm text-primary flex items-center justify-between border-b pb-2">
+                            <span>👑 Top 5 Shooper Loyal (Pelanggan)</span>
+                            <span class="badge badge-sm badge-primary text-[9px]">By Total Belanja</span>
+                        </h3>
+                        <div id="exec-top-shoopers" class="space-y-2 text-xs">
+                            <p class="opacity-60 text-center py-4">Memuat data Shooper...</p>
+                        </div>
+                    </div>
+
+                    <!-- TOP RUNNER TERBANYAK -->
+                    <div class="card bg-base-100 p-4 border border-primary/20 shadow-md space-y-3">
+                        <h3 class="font-extrabold text-sm text-primary flex items-center justify-between border-b pb-2">
+                            <span>🏃 Top 5 Runner Terbanyak (Armada)</span>
+                            <span class="badge badge-sm badge-warning text-[9px]">By Antaran Selesai</span>
+                        </h3>
+                        <div id="exec-top-runners" class="space-y-2 text-xs">
+                            <p class="opacity-60 text-center py-4">Memuat data Runner...</p>
+                        </div>
+                    </div>
+
+                    <!-- TOP WARUNG MITRA TERLARIS -->
+                    <div class="card bg-base-100 p-4 border border-primary/20 shadow-md space-y-3">
+                        <h3 class="font-extrabold text-sm text-primary flex items-center justify-between border-b pb-2">
+                            <span>🏪 Top 5 Warung Mitra Terlaris</span>
+                            <span class="badge badge-sm badge-success text-[9px]">By Porsi Terjual</span>
+                        </h3>
+                        <div id="exec-top-merchants" class="space-y-2 text-xs">
+                            <p class="opacity-60 text-center py-4">Memuat data Merchant...</p>
+                        </div>
+                    </div>
+
+                    <!-- TOP LOKASI TERFAVORIT -->
+                    <div class="card bg-base-100 p-4 border border-primary/20 shadow-md space-y-3">
+                        <h3 class="font-extrabold text-sm text-primary flex items-center justify-between border-b pb-2">
+                            <span>📍 Top 5 Lokasi Antar Terfavorit</span>
+                            <span class="badge badge-sm badge-info text-[9px]">By Frekuensi Order</span>
+                        </h3>
+                        <div id="exec-top-locations" class="space-y-2 text-xs">
+                            <p class="opacity-60 text-center py-4">Memuat data Lokasi...</p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- TAB 0: ALL IN ONE MASTER SETTINGS -->
+            <section id="sec-settings" class="card bg-base-100 p-6 border border-primary/20 shadow-md space-y-6 hidden">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <div>
+                        <h3 class="font-black text-lg text-primary">Master Konfigurasi Global Platform</h3>
+                        <p class="text-xs opacity-70">Kelola promo, fee, reward rupiah, branding, & tema dalam 1 panel</p>
+                    </div>
+                    <button onclick="saveAllMasterSettings()" class="btn btn-primary btn-sm font-black shadow-lg">💾 Simpan Semua Settings</button>
+                </div>
+
+                <div class="bg-base-200 p-4 rounded-2xl border border-base-300 space-y-3">
+                    <h4 class="font-bold text-sm text-primary">🎨 Branding & Tampilan App</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="label text-xs font-bold">Inisial / Huruf Logo</label>
+                            <input type="text" id="set-app-logo-text" class="input input-bordered w-full text-sm font-bold">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Slogan Aplikasi</label>
+                            <input type="text" id="set-app-slogan" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">URL Favicon Icon</label>
+                            <input type="text" id="set-app-favicon-url" class="input input-bordered w-full text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-base-200 p-4 rounded-2xl border border-base-300 space-y-3">
+                    <h4 class="font-bold text-sm text-warning">📣 Master Promo Hari Ini</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="label text-xs font-bold">Judul Badge Promo</label>
+                            <input type="text" id="set-promo-badge" class="input input-bordered w-full text-sm font-bold">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Judul Banner Promo</label>
+                            <input type="text" id="set-promo-title" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Deskripsi Singkat Promo</label>
+                            <input type="text" id="set-promo-desc" class="input input-bordered w-full text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-base-200 p-4 rounded-2xl border border-base-300 space-y-3">
+                    <h4 class="font-bold text-sm text-success">💰 Master Fee & Reward Rupiah</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="label text-xs font-bold">Biaya Layanan App (Rp/Checkout)</label>
+                            <input type="number" id="set-service-fee" class="input input-bordered w-full text-sm font-bold">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Default Fee Jastip (Rp/Porsi)</label>
+                            <input type="number" id="set-default-fee-per-item" class="input input-bordered w-full text-sm font-bold">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Cashback Reward Rupiah (Rp/Porsi)</label>
+                            <input type="number" id="set-reward-per-item" class="input input-bordered w-full text-sm font-bold text-warning">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-base-200 p-4 rounded-2xl border border-base-300 space-y-3">
+                    <h4 class="font-bold text-sm text-info">📜 Master Syarat & Ketentuan Reward</h4>
+                    <div>
+                        <textarea id="set-reward-terms" rows="3" class="textarea textarea-bordered w-full text-xs font-mono"></textarea>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="font-bold text-sm">Theme Selector (daisyUI)</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div onclick="setThemeChoice('luxury')" id="card-theme-luxury" class="card bg-slate-900 border-2 border-amber-500/50 p-4 cursor-pointer hover:scale-105 transition shadow-lg">
+                            <span class="font-bold text-amber-400 text-sm">🏆 luxury</span>
+                        </div>
+                        <div onclick="setThemeChoice('bumblebee')" id="card-theme-bumblebee" class="card bg-yellow-50 border-2 border-yellow-500/50 p-4 cursor-pointer hover:scale-105 transition shadow-lg text-slate-900">
+                            <span class="font-bold text-yellow-700 text-sm">🐝 bumblebee</span>
+                        </div>
+                        <div onclick="setThemeChoice('emerald')" id="card-theme-emerald" class="card bg-emerald-50 border-2 border-emerald-500/50 p-4 cursor-pointer hover:scale-105 transition shadow-lg text-slate-900">
+                            <span class="font-bold text-emerald-800 text-sm">🌲 emerald</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 1: VERIFIKASI & ZONING RUNNER -->
+            <section id="sec-runners" class="card bg-base-100 p-6 border border-primary/20 shadow-md space-y-4 hidden">
+                <h3 class="font-bold text-lg border-b pb-2">Persetujuan & Zoning Wilayah Runner</h3>
+                <div class="collapse collapse-arrow bg-base-200 border border-primary/20 shadow-sm">
+                    <input type="checkbox" checked="checked" /> 
+                    <div class="collapse-title font-bold text-md flex items-center gap-2">
+                        <span class="badge badge-primary font-bold text-xs">RUNNER</span>
+                        Daftar Akun & ZONING Runner CS
+                    </div>
+                    <div class="collapse-content"> 
+                        <div id="runner-list" class="space-y-2 max-h-72 overflow-y-auto pr-2">
+                            <p class="text-xs opacity-70">Memuat data user...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: MASTER LOKASI DETAIL -->
+            <section id="sec-locations" class="card bg-base-100 p-6 border border-primary/20 shadow-md space-y-6 hidden">
+                <h3 class="font-bold text-lg border-b pb-2">Master Lokasi Antar</h3>
+                
+                <div class="bg-base-200 p-4 rounded-xl space-y-3 border border-base-300">
+                    <h4 class="font-bold text-sm text-primary">+ Tambah Lokasi Baru</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="label text-xs font-bold">Nama Lokasi / Ruangan</label>
+                            <input type="text" id="loc-name" placeholder="misal: Bank Mandiri - Lantai 2 / R. Mawar" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Tipe Lokasi Area</label>
+                            <select id="loc-area-type" class="select select-bordered w-full text-sm">
+                                <option value="Instansi">🏢 Area Instansi / Perkantoran</option>
+                                <option value="Umum">🏘️ Area Perumahan / Umum</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Alamat Lengkap</label>
+                            <input type="text" id="loc-address" placeholder="misal: Jl. Raya Jendral Sudirman No. 45" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Kontak Person / PIC</label>
+                            <input type="text" id="loc-contact" placeholder="misal: Pak Security (08123456789)" class="input input-bordered w-full text-sm">
+                        </div>
+                    </div>
+                    <button onclick="addLocation()" class="btn btn-primary font-bold text-sm w-full mt-2">+ Simpan Lokasi Master</button>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="collapse collapse-arrow bg-base-200 border border-info/30 shadow-sm">
+                        <input type="checkbox" checked="checked" /> 
+                        <div class="collapse-title font-bold text-md flex items-center gap-2">
+                            <span class="badge badge-info font-bold text-xs">Instansi</span>
+                            Daftar Lokasi Perkantoran / Instansi
+                        </div>
+                        <div class="collapse-content"> 
+                            <div id="location-list-rs" class="space-y-2 max-h-72 overflow-y-auto pr-2">
+                                <p class="text-xs opacity-70">Memuat lokasi Instansi...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="collapse collapse-arrow bg-base-200 border border-warning/30 shadow-sm">
+                        <input type="checkbox" /> 
+                        <div class="collapse-title font-bold text-md flex items-center gap-2">
+                            <span class="badge badge-warning font-bold text-xs">Umum</span>
+                            Daftar Lokasi Perumahan / Umum
+                        </div>
+                        <div class="collapse-content"> 
+                            <div id="location-list-non-rs" class="space-y-2 max-h-72 overflow-y-auto pr-2">
+                                <p class="text-xs opacity-70">Memuat lokasi Umum...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: MERCHANT & MENU MANAGEMENT -->
+            <section id="sec-merchants" class="card bg-base-100 p-6 border border-primary/20 shadow-md space-y-6 hidden">
+                <div class="space-y-4">
+                    <h3 class="font-bold text-lg border-b pb-2">Tambah Merchant (Warung Baru)</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input type="text" id="new-merchant-name" placeholder="Nama Warung" class="input input-bordered text-sm">
+                        <input type="tel" id="new-merchant-phone" placeholder="No WA (087855817448)" class="input input-bordered text-sm">
+                        <button onclick="addMerchant()" class="btn btn-success font-bold text-sm">+ Simpan Merchant</button>
+                    </div>
+                </div>
+
+                <div class="bg-base-200 p-4 rounded-xl space-y-3 border border-base-300">
+                    <h3 class="font-bold text-md text-primary border-b pb-2">+ Tambah Menu Makanan / Minuman</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="label text-xs font-bold">Pilih Merchant / Warung</label>
+                            <select id="select-merchant-for-menu" class="select select-bordered w-full text-sm">
+                                <option value="">Pilih Merchant</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Nama Menu</label>
+                            <input type="text" id="new-menu-name" placeholder="misal: Nasi Rames Ayam" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Harga Modal Warung (Rp)</label>
+                            <input type="number" id="new-menu-price" placeholder="15000" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Potongan / Diskon Merchant (Rp/porsi)</label>
+                            <input type="number" id="new-menu-discount" placeholder="2000 (Isi 0 jika tidak ada)" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">Fee Jastip Per Porsi (Rp/porsi)</label>
+                            <input type="number" id="new-menu-fee" placeholder="1000" value="1000" class="input input-bordered w-full text-sm">
+                        </div>
+                        <div>
+                            <label class="label text-xs font-bold">URL Gambar Makanan (Opsional)</label>
+                            <input type="text" id="new-menu-img" placeholder="https://images.unsplash.com/..." class="input input-bordered w-full text-sm">
+                        </div>
+                    </div>
+                    <button onclick="addMenu()" class="btn btn-primary w-full font-bold text-sm mt-2">+ Simpan Menu Makanan</button>
+                </div>
+
+                <div class="collapse collapse-arrow bg-base-200 border border-success/30 shadow-sm">
+                    <input type="checkbox" checked="checked" /> 
+                    <div class="collapse-title font-bold text-md flex items-center gap-2">
+                        <span class="badge badge-success font-bold text-xs">WARUNG</span>
+                        Daftar Merchant Terdaftar
+                    </div>
+                    <div class="collapse-content"> 
+                        <div id="merchant-registered-list" class="space-y-2 max-h-72 overflow-y-auto pr-2">
+                            <p class="text-xs opacity-70">Memuat merchant...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: DAFTAR SHOOPER -->
+            <section id="sec-shoopers" class="card bg-base-100 p-6 border border-primary/20 shadow-md space-y-4 hidden">
+                <h3 class="font-bold text-lg border-b pb-2">Database Karyawan Pemesan (Shooper)</h3>
+                
+                <div class="collapse collapse-arrow bg-base-200 border border-info/30 shadow-sm">
+                    <input type="checkbox" checked="checked" /> 
+                    <div class="collapse-title font-bold text-md flex items-center gap-2">
+                        <span class="badge badge-info font-bold text-xs">SHOOPER</span>
+                        Daftar Karyawan Pemesan Terdaftar
+                    </div>
+                    <div class="collapse-content"> 
+                        <div id="shooper-list" class="space-y-2 max-h-72 overflow-y-auto pr-2">
+                            <p class="text-xs opacity-70">Memuat data Shooper...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL EDIT LOKASI MASTER -->
+    <dialog id="edit-loc-modal" class="modal">
+        <div class="modal-box bg-base-100 border border-primary/30">
+            <h3 class="font-bold text-lg text-primary border-b border-base-300 pb-2">Edit Data Lokasi</h3>
+            <input type="hidden" id="edit-loc-id">
+            
+            <div class="space-y-3 py-4">
+                <div>
+                    <label class="label text-xs font-bold">Nama Lokasi / Ruangan</label>
+                    <input type="text" id="edit-loc-name" class="input input-bordered w-full text-sm">
+                </div>
+                <div>
+                    <label class="label text-xs font-bold">Tipe Lokasi Area</label>
+                    <select id="edit-loc-area-type" class="select select-bordered w-full text-sm">
+                        <option value="Instansi">🏢 Area Instansi / Perkantoran</option>
+                        <option value="Umum">🏘️ Area Perumahan / Umum</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="label text-xs font-bold">Alamat Lengkap</label>
+                    <input type="text" id="edit-loc-address" class="input input-bordered w-full text-sm">
+                </div>
+                <div>
+                    <label class="label text-xs font-bold">Kontak Person / PIC</label>
+                    <input type="text" id="edit-loc-contact" class="input input-bordered w-full text-sm">
+                </div>
+            </div>
+
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost btn-sm">Batal</button>
+                </form>
+                <button onclick="submitUpdateLocation()" class="btn btn-primary btn-sm font-bold">Simpan Perubahan</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script>
+        let selectedThemeChoice = 'luxury';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMasterSettings();
+            checkAdminSession();
+        });
+
+        async function fetchMasterSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                
+                if (data.active_theme) {
+                    selectedThemeChoice = data.active_theme;
+                    document.documentElement.setAttribute('data-theme', data.active_theme);
+                }
+                
+                document.getElementById('set-app-logo-text').value = data.app_logo_text || 'S';
+                document.getElementById('set-app-slogan').value = data.app_slogan || '';
+                document.getElementById('set-app-favicon-url').value = data.app_favicon_url || '';
+                
+                document.getElementById('set-promo-badge').value = data.promo_badge || 'PROMO HARI INI';
+                document.getElementById('set-promo-title').value = data.promo_title || '';
+                document.getElementById('set-promo-desc').value = data.promo_desc || '';
+
+                document.getElementById('set-service-fee').value = data.service_fee || 2000;
+                document.getElementById('set-default-fee-per-item').value = data.default_fee_per_item || 1000;
+                document.getElementById('set-reward-per-item').value = data.reward_per_item || 500;
+                document.getElementById('set-reward-terms').value = data.reward_terms || '';
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function checkAdminSession() {
+            const token = localStorage.getItem('admin_token');
+            if (token === 'admin-authenticated-token-yasir') {
+                document.getElementById('admin-login-box').classList.add('hidden');
+                document.getElementById('admin-main-content').classList.remove('hidden');
+                loadExecutiveDashboard();
+                loadUsers();
+                loadLocations();
+                loadMerchantsForDropdown();
+            } else {
+                document.getElementById('admin-login-box').classList.remove('hidden');
+                document.getElementById('admin-main-content').classList.add('hidden');
+            }
+        }
+
+        async function loadExecutiveDashboard() {
+            try {
+                const res = await fetch('/api/admin/dashboard-stats');
+                const data = await res.json();
+
+                // 1. Fill Summary Cards
+                const s = data.summary;
+                document.getElementById('stat-gross-gmv').innerText = `Rp ${s.gross_gmv.toLocaleString('id-ID')}`;
+                document.getElementById('stat-net-profit').innerText = `Rp ${s.net_profit_app.toLocaleString('id-ID')}`;
+                document.getElementById('stat-total-orders').innerText = s.total_orders.toLocaleString('id-ID');
+                document.getElementById('stat-completed-orders').innerText = s.completed_orders.toLocaleString('id-ID');
+                document.getElementById('stat-pending-orders').innerText = s.pending_orders.toLocaleString('id-ID');
+                document.getElementById('stat-items-sold').innerText = `${s.total_items_sold.toLocaleString('id-ID')} Porsi`;
+
+                // 2. Render Top Shoopers
+                const shooperCont = document.getElementById('exec-top-shoopers');
+                if (data.top_shoopers.length === 0) {
+                    shooperCont.innerHTML = '<p class="opacity-50 italic">Belum ada transaksi completed.</p>';
+                } else {
+                    shooperCont.innerHTML = '';
+                    data.top_shoopers.forEach((u, i) => {
+                        shooperCont.innerHTML += `
+                            <div class="p-2 bg-base-200 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-primary">#${i+1} ${u.name}</p>
+                                    <p class="text-[10px] opacity-70">📍 ${u.location} • WA: ${u.phone_number}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-black text-warning">Rp ${parseFloat(u.total_spent).toLocaleString('id-ID')}</p>
+                                    <p class="text-[9px] opacity-70">${u.total_orders} Order Selesai</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // 3. Render Top Runners
+                const runnerCont = document.getElementById('exec-top-runners');
+                if (data.top_runners.length === 0) {
+                    runnerCont.innerHTML = '<p class="opacity-50 italic">Belum ada antaran completed.</p>';
+                } else {
+                    runnerCont.innerHTML = '';
+                    data.top_runners.forEach((r, i) => {
+                        runnerCont.innerHTML += `
+                            <div class="p-2 bg-base-200 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-primary">#${i+1} ${r.name}</p>
+                                    <p class="text-[10px] opacity-70">Zona: ${r.assigned_zone} • WA: ${r.phone_number}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-black text-success">${r.completed_deliveries} Antaran</p>
+                                    <p class="text-[9px] opacity-70">Ongkir: Rp ${parseFloat(r.total_delivery_earned).toLocaleString('id-ID')}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // 4. Render Top Merchants
+                const merchCont = document.getElementById('exec-top-merchants');
+                if (data.top_merchants.length === 0) {
+                    merchCont.innerHTML = '<p class="opacity-50 italic">Belum ada menu terjual.</p>';
+                } else {
+                    merchCont.innerHTML = '';
+                    data.top_merchants.forEach((m, i) => {
+                        merchCont.innerHTML += `
+                            <div class="p-2 bg-base-200 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-primary">#${i+1} ${m.merchant_name}</p>
+                                    <p class="text-[10px] opacity-70">WA: ${m.phone_number}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-black text-primary">${m.total_items_sold} Porsi Terjual</p>
+                                    <p class="text-[9px] opacity-70">Nilai: Rp ${parseFloat(m.total_sales).toLocaleString('id-ID')}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // 5. Render Top Locations
+                const locCont = document.getElementById('exec-top-locations');
+                if (data.top_locations.length === 0) {
+                    locCont.innerHTML = '<p class="opacity-50 italic">Belum ada riwayat lokasi.</p>';
+                } else {
+                    locCont.innerHTML = '';
+                    data.top_locations.forEach((l, i) => {
+                        locCont.innerHTML += `
+                            <div class="p-2 bg-base-200 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold text-primary">#${i+1} ${l.location_name}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-black text-info">${l.total_orders} Order</p>
+                                    <p class="text-[9px] opacity-70">Omset: Rp ${parseFloat(l.total_revenue).toLocaleString('id-ID')}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function setThemeChoice(theme) {
+            selectedThemeChoice = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        async function saveAllMasterSettings() {
+            const payload = {
+                active_theme: selectedThemeChoice,
+                app_logo_text: document.getElementById('set-app-logo-text').value.trim(),
+                app_slogan: document.getElementById('set-app-slogan').value.trim(),
+                app_favicon_url: document.getElementById('set-app-favicon-url').value.trim(),
+                
+                promo_badge: document.getElementById('set-promo-badge').value.trim(),
+                promo_title: document.getElementById('set-promo-title').value.trim(),
+                promo_desc: document.getElementById('set-promo-desc').value.trim(),
+
+                service_fee: document.getElementById('set-service-fee').value,
+                default_fee_per_item: document.getElementById('set-default-fee-per-item').value,
+                reward_per_item: document.getElementById('set-reward-per-item').value,
+                reward_terms: document.getElementById('set-reward-terms').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/admin/settings/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('🎉 Seluruh Master Settings berhasil disimpan!');
+                    fetchMasterSettings();
+                }
+            } catch (err) {
+                alert('Gagal menyimpan Master Settings.');
+            }
+        }
+
+        async function loginAdmin() {
+            const user = document.getElementById('admin-user').value.trim();
+            const pass = document.getElementById('admin-pass').value.trim();
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('admin_token', data.token);
+                    checkAdminSession();
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan login.');
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('admin_token');
+            checkAdminSession();
+        }
+
+        function switchTab(tab) {
+            ['dashboard', 'settings', 'runners', 'locations', 'merchants', 'shoopers'].forEach(t => {
+                document.getElementById(`sec-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('tab-active');
+            });
+            document.getElementById(`sec-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+
+            if (tab === 'dashboard') {
+                loadExecutiveDashboard();
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const users = await res.json();
+                
+                const runnerContainer = document.getElementById('runner-list');
+                const shooperContainer = document.getElementById('shooper-list');
+
+                const runners = users.filter(u => u.role === 'runner');
+                const shoopers = users.filter(u => u.role === 'shooper');
+
+                if (runners.length === 0) {
+                    runnerContainer.innerHTML = '<p class="text-xs opacity-70">Belum ada akun Runner.</p>';
+                } else {
+                    runnerContainer.innerHTML = '';
+                    runners.forEach(r => {
+                        const statusBadge = r.is_approved 
+                            ? '<span class="badge badge-success text-[10px] font-bold">APPROVED</span>'
+                            : '<span class="badge badge-warning text-[10px] font-bold">PENDING</span>';
+                        
+                        const actionBtn = r.is_approved
+                            ? `<button onclick="approveRunner(${r.id}, false)" class="btn btn-error btn-xs font-bold">Nonaktifkan</button>`
+                            : `<button onclick="approveRunner(${r.id}, true)" class="btn btn-success btn-xs font-bold">✓ Setujui</button>`;
+
+                        runnerContainer.innerHTML += `
+                            <div class="flex justify-between items-center p-3 border border-base-300 rounded-xl bg-base-100 shadow-sm gap-2 text-xs">
+                                <div>
+                                    <p class="font-bold text-sm">${r.name} <span class="opacity-60 text-xs">(${r.phone_number})</span></p>
+                                    <p class="text-xs opacity-70">Status: ${statusBadge}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div>
+                                        <label class="text-[10px] font-bold block">Zona Tugas:</label>
+                                        <select onchange="updateRunnerZone(${r.id}, this.value)" class="select select-bordered select-xs text-[10px] font-bold">
+                                            <option value="All" ${r.assigned_zone === 'All' ? 'selected' : ''}>🌐 Semua Zona</option>
+                                            <option value="Instansi" ${r.assigned_zone === 'Instansi' ? 'selected' : ''}>🏢 Perkantoran/Instansi</option>
+                                            <option value="Umum" ${r.assigned_zone === 'Umum' ? 'selected' : ''}>🏘️ Perumahan/Umum</option>
+                                        </select>
+                                    </div>
+                                    <div>${actionBtn}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (shoopers.length === 0) {
+                    shooperContainer.innerHTML = '<p class="text-xs opacity-70">Belum ada karyawan terdaftar.</p>';
+                } else {
+                    shooperContainer.innerHTML = '';
+                    shoopers.forEach(s => {
+                        const rBal = parseFloat(s.reward_balance || 0).toLocaleString('id-ID');
+                        shooperContainer.innerHTML += `
+                            <div class="p-3 border border-base-300 rounded-xl bg-base-100 shadow-sm flex justify-between items-center text-xs">
+                                <div>
+                                    <span class="font-bold text-sm text-primary">${s.name}</span>
+                                    <p class="opacity-70">WA: ${s.phone_number}</p>
+                                    <p class="text-[11px] text-warning font-extrabold">Saldo Reward: Rp ${rBal}</p>
+                                </div>
+                                <span class="badge badge-primary font-bold">${s.department_location || 'Lokasi Umum'}</span>
+                            </div>
+                        `;
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function updateRunnerZone(userId, zone) {
+            try {
+                await fetch('/api/admin/runner/update-zone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, zone })
+                });
+                alert('Zona tugas Runner berhasil diupdate!');
+            } catch (err) {
+                alert('Gagal mengupdate zona.');
+            }
+        }
+
+        async function approveRunner(userId, approve) {
+            try {
+                const res = await fetch(`/api/admin/approve-runner/${userId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ approve })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    loadUsers();
+                }
+            } catch (err) {
+                alert('Gagal memproses persetujuan.');
+            }
+        }
+
+        let allLocationsData = [];
+
+        async function loadLocations() {
+            try {
+                const res = await fetch('/api/locations');
+                allLocationsData = await res.json();
+                
+                const containerRS = document.getElementById('location-list-rs');
+                const containerNonRS = document.getElementById('location-list-non-rs');
+
+                const rsLocs = allLocationsData.filter(l => l.area_type === 'Instansi');
+                const nonRsLocs = allLocationsData.filter(l => l.area_type !== 'Instansi');
+
+                if (rsLocs.length === 0) {
+                    containerRS.innerHTML = '<p class="text-xs opacity-50 py-1">Belum ada lokasi Instansi.</p>';
+                } else {
+                    containerRS.innerHTML = '';
+                    rsLocs.forEach(loc => {
+                        containerRS.innerHTML += renderLocationCard(loc);
+                    });
+                }
+
+                if (nonRsLocs.length === 0) {
+                    containerNonRS.innerHTML = '<p class="text-xs opacity-50 py-1">Belum ada lokasi Umum.</p>';
+                } else {
+                    containerNonRS.innerHTML = '';
+                    nonRsLocs.forEach(loc => {
+                        containerNonRS.innerHTML += renderLocationCard(loc);
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderLocationCard(loc) {
+            const safeName = loc.name.replace(/'/g, "\\'");
+            const safeAddr = (loc.address || '').replace(/'/g, "\\'");
+            const safeContact = (loc.contact_person || '').replace(/'/g, "\\'");
+
+            return `
+                <div class="p-3 border border-base-300 rounded-xl bg-base-100 text-sm flex justify-between items-start gap-2 shadow-sm">
+                    <div class="space-y-1 flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-primary">${loc.name}</span>
+                        </div>
+                        <p class="text-xs opacity-70"><strong>Alamat:</strong> ${loc.address || '-'}</p>
+                        <p class="text-xs opacity-70"><strong>PIC:</strong> ${loc.contact_person || '-'}</p>
+                    </div>
+                    <div class="flex flex-col gap-1.5 w-16">
+                        <button onclick="openEditLocationModal(${loc.id}, '${safeName}', '${loc.area_type}', '${safeAddr}', '${safeContact}')" class="btn btn-warning btn-xs font-bold px-0">Edit</button>
+                        <button onclick="deleteLocation(${loc.id})" class="btn btn-error btn-outline border-none btn-xs font-bold px-0">Hapus</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openEditLocationModal(id, name, area_type, address, contact) {
+            document.getElementById('edit-loc-id').value = id;
+            document.getElementById('edit-loc-name').value = name;
+            document.getElementById('edit-loc-area-type').value = area_type;
+            document.getElementById('edit-loc-address').value = address;
+            document.getElementById('edit-loc-contact').value = contact;
+            document.getElementById('edit-loc-modal').showModal();
+        }
+
+        async function submitUpdateLocation() {
+            const id = document.getElementById('edit-loc-id').value;
+            const name = document.getElementById('edit-loc-name').value.trim();
+            const area_type = document.getElementById('edit-loc-area-type').value;
+            const address = document.getElementById('edit-loc-address').value.trim();
+            const contact_person = document.getElementById('edit-loc-contact').value.trim();
+
+            if (!name) return alert('Nama Lokasi wajib diisi!');
+
+            try {
+                const res = await fetch(`/api/admin/locations/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, area_type, address, contact_person })
+                });
+
+                const result = await res.json();
+                if (result.success) {
+                    document.getElementById('edit-loc-modal').close();
+                    loadLocations();
+                } else {
+                    alert('Gagal mengupdate lokasi.');
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan koneksi.');
+            }
+        }
+
+        async function addLocation() {
+            const name = document.getElementById('loc-name').value.trim();
+            const area_type = document.getElementById('loc-area-type').value;
+            const address = document.getElementById('loc-address').value.trim();
+            const contact_person = document.getElementById('loc-contact').value.trim();
+
+            if (!name) return alert('Isi Nama Lokasi!');
+
+            try {
+                const res = await fetch('/api/admin/locations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, area_type, address, contact_person })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    document.getElementById('loc-name').value = '';
+                    document.getElementById('loc-address').value = '';
+                    document.getElementById('loc-contact').value = '';
+                    loadLocations();
+                }
+            } catch (err) {
+                alert('Gagal menambah lokasi.');
+            }
+        }
+
+        async function deleteLocation(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus lokasi ini?')) return;
+            try {
+                await fetch(`/api/admin/locations/${id}`, { method: 'DELETE' });
+                loadLocations();
+            } catch (err) {
+                alert('Gagal menghapus lokasi.');
+            }
+        }
+
+        async function loadMerchantsForDropdown() {
+            try {
+                const res = await fetch('/api/admin/merchants');
+                const merchants = await res.json();
+                const select = document.getElementById('select-merchant-for-menu');
+                const listContainer = document.getElementById('merchant-registered-list');
+
+                select.innerHTML = '<option value="">Pilih Merchant</option>';
+                if (merchants.length === 0) {
+                    listContainer.innerHTML = '<p class="text-xs opacity-70">Belum ada merchant terdaftar.</p>';
+                    return;
+                }
+
+                listContainer.innerHTML = '';
+                merchants.forEach(m => {
+                    select.innerHTML += `<option value="${m.id}">${m.name} (${m.phone_number})</option>`;
+                    listContainer.innerHTML += `
+                        <div class="p-2.5 border border-base-300 rounded-lg bg-base-100 text-xs flex justify-between items-center shadow-sm">
+                            <span class="font-bold text-primary">${m.name}</span>
+                            <span class="font-mono opacity-80">${m.phone_number}</span>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function addMerchant() {
+            const name = document.getElementById('new-merchant-name').value.trim();
+            const phone = document.getElementById('new-merchant-phone').value.trim();
+            if (!name || !phone) return alert('Isi Nama Warung dan No. WA!');
+
+            try {
+                const res = await fetch('/api/admin/merchants', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('Merchant berhasil ditambahkan!');
+                    document.getElementById('new-merchant-name').value = '';
+                    document.getElementById('new-merchant-phone').value = '';
+                    loadMerchantsForDropdown();
+                }
+            } catch (err) {
+                alert('Gagal membuat merchant.');
+            }
+        }
+
+        async function addMenu() {
+            const merchant_id = document.getElementById('select-merchant-for-menu').value;
+            const name = document.getElementById('new-menu-name').value.trim();
+            const price = document.getElementById('new-menu-price').value.trim();
+            const merchant_discount = document.getElementById('new-menu-discount').value.trim() || 0;
+            const fee_per_item = document.getElementById('new-menu-fee').value.trim() || 1000;
+            const image_url = document.getElementById('new-menu-img').value.trim();
+
+            if (!merchant_id || !name || !price) return alert('Lengkapi Nama Merchant, Menu, dan Harga Modal!');
+
+            try {
+                const res = await fetch('/api/admin/menus', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ merchant_id, name, price, merchant_discount, fee_per_item, image_url })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('Menu berhasil ditambahkan!');
+                    document.getElementById('new-menu-name').value = '';
+                    document.getElementById('new-menu-price').value = '';
+                    document.getElementById('new-menu-discount').value = '';
+                    document.getElementById('new-menu-img').value = '';
+                }
+            } catch (err) {
+                alert('Gagal membuat menu.');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables & Secrets (SANGAT SENSITIF)
+.env
+.env.local
+*.env
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Database dumps / backups lokal
+*.sql
+*.tar.gz
+backups/
+postgres_data/

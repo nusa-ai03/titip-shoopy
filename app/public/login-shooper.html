@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="luxury">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akses Shooper - Titip Shoopy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="min-h-screen bg-base-200 text-base-content flex items-center justify-center p-4">
+
+    <div class="card bg-base-100 shadow-xl border border-primary/20 w-full max-w-md p-6 space-y-5">
+        <div class="text-center space-y-1">
+            <div class="w-12 h-12 rounded-2xl bg-primary text-primary-content mx-auto flex items-center justify-center font-black text-2xl shadow-lg">
+                S
+            </div>
+            <h1 class="text-2xl font-black text-primary">titip.shoopy</h1>
+            <p class="text-xs opacity-70">Portal Akses Pelanggan & Karyawan (Shooper)</p>
+        </div>
+
+        <div class="role-tablist tabs tabs-boxed bg-base-200 p-1 font-bold">
+            <a role="tab" onclick="switchAuthTab('login')" id="tab-btn-login" class="tab tab-active">🔑 Login Shooper</a>
+            <a role="tab" onclick="switchAuthTab('register')" id="tab-btn-reg" class="tab">📝 Registrasi Baru</a>
+        </div>
+
+        <div id="form-login-box" class="space-y-4">
+            <div class="form-control space-y-3">
+                <div>
+                    <label class="label text-xs font-bold">Nomor WhatsApp (Diawali 0)</label>
+                    <input type="tel" id="login-phone" placeholder="Contoh: 081234567890" class="input input-bordered w-full text-sm font-medium">
+                </div>
+                <button onclick="submitLoginShooper()" class="btn btn-primary w-full font-black shadow-lg">
+                    Masuk Ke Katalog Belanja 🚀
+                </button>
+            </div>
+        </div>
+
+        <div id="form-reg-box" class="space-y-3.5 hidden">
+            <div>
+                <label class="label text-xs font-bold">Nama Lengkap <span class="badge badge-ghost text-[10px]">Opsional</span></label>
+                <input type="text" id="reg-name" placeholder="Contoh: Budi Prasetyo / Mbak Maya" class="input input-bordered w-full text-sm">
+            </div>
+
+            <div>
+                <label class="label text-xs font-bold text-error">Nomor WhatsApp (Mandatori, Diawali 0) *</label>
+                <input type="tel" id="reg-phone" placeholder="Contoh: 081234567890" class="input input-bordered input-primary w-full text-sm font-bold">
+            </div>
+
+            <div>
+                <label class="label text-xs font-bold">Pilih Lokasi Utama Antar</label>
+                <select id="reg-location" class="select select-bordered w-full text-sm">
+                    <option value="">Memuat daftar lokasi...</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="label text-xs font-bold">Alamat Lengkap (Gedung/Ruangan/Detail Rumah)</label>
+                <input type="text" id="reg-address" placeholder="misal: R. Pelayanan L2 / Jl. Merdeka No 10" class="input input-bordered w-full text-sm">
+            </div>
+
+            <div>
+                <label class="label text-xs font-bold flex justify-between">
+                    <span>Titik Map / Link Google Maps</span>
+                    <button onclick="getCurrentGPSLocation()" type="button" class="link link-primary font-bold text-[10px]">📍 Ambil GPS HP</button>
+                </label>
+                <input type="text" id="reg-map-point" placeholder="https://maps.google.com/... atau koordinat" class="input input-bordered w-full text-sm font-mono text-xs">
+            </div>
+
+            <button onclick="submitRegisterShooper()" class="btn btn-primary w-full font-black shadow-xl mt-2">
+                Daftar Akun Shooper Baru ✨
+            </button>
+        </div>
+
+        <div class="text-center pt-2 border-t border-base-300">
+            <a href="/" class="text-xs link link-neutral font-semibold">← Kembali ke Katalog Utama</a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchTheme();
+            loadLocations();
+        });
+
+        async function fetchTheme() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.active_theme) {
+                    document.documentElement.setAttribute('data-theme', data.active_theme);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function switchAuthTab(mode) {
+            const btnLogin = document.getElementById('tab-btn-login');
+            const btnReg = document.getElementById('tab-btn-reg');
+            const boxLogin = document.getElementById('form-login-box');
+            const boxReg = document.getElementById('form-reg-box');
+
+            if (mode === 'login') {
+                btnLogin.classList.add('tab-active');
+                btnReg.classList.remove('tab-active');
+                boxLogin.classList.remove('hidden');
+                boxReg.classList.add('hidden');
+            } else {
+                btnReg.classList.add('tab-active');
+                btnLogin.classList.remove('tab-active');
+                boxReg.classList.remove('hidden');
+                boxLogin.classList.add('hidden');
+            }
+        }
+
+        async function loadLocations() {
+            try {
+                const res = await fetch('/api/locations');
+                const locations = await res.json();
+                const select = document.getElementById('reg-location');
+                select.innerHTML = '<option value="">-- Pilih Lokasi Antar --</option>';
+
+                const instansiGroup = locations.filter(l => l.area_type === 'Instansi');
+                const umumGroup = locations.filter(l => l.area_type !== 'Instansi');
+
+                if (instansiGroup.length > 0) {
+                    let optGroupInstansi = '<optgroup label="🏢 Area Perkantoran / Instansi / Kompleks">';
+                    instansiGroup.forEach(loc => {
+                        optGroupInstansi += `<option value="${loc.name}">${loc.name}</option>`;
+                    });
+                    optGroupInstansi += '</optgroup>';
+                    select.innerHTML += optGroupInstansi;
+                }
+
+                if (umumGroup.length > 0) {
+                    let optGroupUmum = '<optgroup label="🏘️ Area Perumahan / Umum / Lainnya">';
+                    umumGroup.forEach(loc => {
+                        optGroupUmum += `<option value="${loc.name}">${loc.name}</option>`;
+                    });
+                    optGroupUmum += '</optgroup>';
+                    select.innerHTML += optGroupUmum;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function getCurrentGPSLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const mapUrl = `https://maps.google.com/?q=${lat},${lng}`;
+                        document.getElementById('reg-map-point').value = mapUrl;
+                        alert('📍 Berhasil mengambil koordinat GPS perangkat Anda!');
+                    },
+                    (error) => {
+                        alert('Gagal mengambil GPS: ' + error.message);
+                    }
+                );
+            } else {
+                alert('Browser Anda tidak mendukung fitur GPS Geolocation.');
+            }
+        }
+
+        async function submitLoginShooper() {
+            const phone = document.getElementById('login-phone').value.trim();
+
+            if (!phone) {
+                alert('Nomor WhatsApp wajib diisi!');
+                return;
+            }
+
+            if (!phone.startsWith('0')) {
+                alert('Nomor WhatsApp wajib diawali angka 0 (contoh: 081234567890)');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/login-shooper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('shooper_user', JSON.stringify(data.user));
+                    alert(`Selamat datang kembali, ${data.user.name}!`);
+                    window.location.href = '/';
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan jaringan.');
+            }
+        }
+
+        async function submitRegisterShooper() {
+            const name = document.getElementById('reg-name').value;
+            const phone = document.getElementById('reg-phone').value.trim();
+            const location = document.getElementById('reg-location').value;
+            const address = document.getElementById('reg-address').value.trim();
+            const map_point = document.getElementById('reg-map-point').value.trim();
+
+            if (!phone) {
+                alert('Nomor WhatsApp wajib diisi!');
+                return;
+            }
+
+            if (!phone.startsWith('0')) {
+                alert('Nomor WhatsApp wajib diawali angka 0 (contoh: 081234567890)');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/register-shooper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone, location, address, map_point })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('shooper_user', JSON.stringify(data.user));
+                    alert('Registrasi Shooper Berhasil! Anda siap melakukan pemesanan.');
+                    window.location.href = '/';
+                } else {
+                    alert('Gagal pendaftaran: ' + data.error);
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan jaringan.');
+            }
+        }
+    </script>
+</body>
+</html>

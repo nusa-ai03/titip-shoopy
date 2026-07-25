@@ -1,6 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -59,7 +60,6 @@ app.post('/api/admin/settings/batch', async (req, res) => {
 // ==================== API EXECUTIVE DASHBOARD STATS ====================
 app.get('/api/admin/dashboard-stats', async (req, res) => {
   try {
-    // 1. Stat Ringkasan Transaksi & Revenue
     const statsRes = await pool.query(`
       SELECT 
         COUNT(o.id) AS total_orders,
@@ -70,7 +70,6 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       FROM orders o
     `);
 
-    // 2. Total Fee Jastip Item Terjual (Margin Platform/Aplikasi)
     const itemFeeRes = await pool.query(`
       SELECT 
         COALESCE(SUM(CASE WHEN o.status = 'completed' THEN oi.quantity * mn.fee_per_item ELSE 0 END), 0) AS total_item_fees,
@@ -80,7 +79,6 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       JOIN menus mn ON oi.menu_id = mn.id
     `);
 
-    // 3. Shooper Loyal (Top 5 Pemesan Terbanyak)
     const topShoopersRes = await pool.query(`
       SELECT u.name, u.phone_number, COALESCE(u.department_location, 'Lokasi Umum') AS location,
              COUNT(o.id) AS total_orders,
@@ -92,7 +90,6 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       LIMIT 5
     `);
 
-    // 4. Runner Terbanyak (Top 5 Runner Selesai Antar)
     const topRunnersRes = await pool.query(`
       SELECT u.name, u.phone_number, COALESCE(u.assigned_zone, 'All') AS assigned_zone,
              COUNT(o.id) AS completed_deliveries,
@@ -104,7 +101,6 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       LIMIT 5
     `);
 
-    // 5. Merchant Terlaris (Top 5 Warung)
     const topMerchantsRes = await pool.query(`
       SELECT m.name AS merchant_name, m.phone_number,
              COALESCE(SUM(oi.quantity), 0) AS total_items_sold,
@@ -118,7 +114,6 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       LIMIT 5
     `);
 
-    // 6. Lokasi Terfavorit
     const topLocationsRes = await pool.query(`
       SELECT COALESCE(u.department_location, 'Lokasi Umum') AS location_name,
              COUNT(o.id) AS total_orders,
@@ -160,7 +155,7 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
   }
 });
 
-// ==================== API ADMIN AUTH & RUNNER ZONING SETTINGS ====================
+// ==================== API ADMIN AUTH & RUNNER ZONING ====================
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
   const cleanUser = (username || '').trim().toLowerCase();
@@ -245,10 +240,7 @@ app.delete('/api/runner/locations/:id', handleDeleteLocation);
 app.post('/api/auth/register-shooper', async (req, res) => {
   try {
     const { name, phone, location, address, map_point } = req.body;
-    
-    if (!phone) {
-      return res.status(400).json({ error: 'Nomor WhatsApp wajib diisi' });
-    }
+    if (!phone) return res.status(400).json({ error: 'Nomor WhatsApp wajib diisi' });
 
     let trimmedPhone = phone.trim();
     if (!trimmedPhone.startsWith('0')) {
@@ -485,14 +477,7 @@ app.post('/api/admin/menus', async (req, res) => {
     await pool.query(
       `INSERT INTO menus (merchant_id, name, price, merchant_discount, fee_per_item, image_url) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        merchant_id, 
-        name, 
-        price, 
-        merchant_discount || 0, 
-        fee_per_item || 1000, 
-        finalImg
-      ]
+      [merchant_id, name, price, merchant_discount || 0, fee_per_item || 1000, finalImg]
     );
     res.json({ success: true });
   } catch (err) {
@@ -500,7 +485,7 @@ app.post('/api/admin/menus', async (req, res) => {
   }
 });
 
-// ==================== ENGINE PRIORITAS 3: AUTO-ASSIGN FALLBACK ====================
+// ==================== AUTO-ASSIGN WORKER ====================
 async function triggerAutoAssignFallback() {
   try {
     const staleOrders = await pool.query(`
@@ -572,7 +557,7 @@ app.get('/api/shooper/my-orders', async (req, res) => {
   }
 });
 
-// ==================== API ORDERS, CLAIM & RUNNER DISPATCHING ====================
+// ==================== API ORDERS & PDF RECEIPT GENERATOR ====================
 app.post('/api/orders', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -653,6 +638,75 @@ app.post('/api/orders', async (req, res) => {
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
+  }
+});
+
+// Endpoint PDF Receipt Generator (Struk Digital dengan E-Catalog Link)
+app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const orderRes = await pool.query(`
+      SELECT o.id, o.total_price, o.delivery_fee, o.service_fee, o.status, o.created_at,
+             u.name AS shooper_name, u.phone_number, u.department_location,
+             r.name AS runner_name
+      FROM orders o
+      JOIN users u ON o.shooper_id = u.id
+      LEFT JOIN users r ON o.runner_id = r.id
+      WHERE o.id = $1
+    `, [orderId]);
+
+    if (orderRes.rows.length === 0) {
+      return res.status(404).send('Pesanan tidak ditemukan');
+    }
+
+    const order = orderRes.rows[0];
+
+    const itemsRes = await pool.query(`
+      SELECT oi.quantity, oi.price_per_item, mn.name AS menu_name
+      FROM order_items oi
+      JOIN menus mn ON oi.menu_id = mn.id
+      WHERE oi.order_id = $1
+    `, [orderId]);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Struk-TitipShoopy-#${orderId}.pdf`);
+
+    const doc = new PDFDocument({ size: [226, 480], margin: 15 });
+    doc.pipe(res);
+
+    doc.fontSize(12).font('Helvetica-Bold').text('TITIP SHOOPY', { align: 'center' });
+    doc.fontSize(8).font('Helvetica').text('Hyperlocal Food Delivery & Jastip', { align: 'center' });
+    doc.text('https://titip.shoopy.my.id', { align: 'center' });
+    doc.text('------------------------------------------------------------', { align: 'center' });
+
+    doc.fontSize(8).font('Helvetica-Bold').text(`Order ID : #${order.id}`);
+    doc.font('Helvetica').text(`Pemesan  : ${order.shooper_name}`);
+    doc.text(`Lokasi   : ${order.department_location || '-'}`);
+    doc.text(`Tanggal  : ${new Date(order.created_at).toLocaleString('id-ID')}`);
+    doc.text('------------------------------------------------------------', { align: 'center' });
+
+    doc.font('Helvetica-Bold').text('Rincian Pesanan:');
+    itemsRes.rows.forEach(item => {
+      const subtotalItem = item.quantity * parseFloat(item.price_per_item);
+      doc.font('Helvetica').text(`${item.quantity}x ${item.menu_name}`);
+      doc.text(`   @Rp ${parseFloat(item.price_per_item).toLocaleString('id-ID')} = Rp ${subtotalItem.toLocaleString('id-ID')}`);
+    });
+
+    doc.text('------------------------------------------------------------', { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(9).text(`TOTAL TAGIHAN COD: Rp ${parseFloat(order.total_price).toLocaleString('id-ID')}`);
+    doc.text('------------------------------------------------------------', { align: 'center' });
+    
+    doc.fontSize(7).font('Helvetica').text(`Runner: ${order.runner_name || 'Tim Shoopy'}`, { align: 'center' });
+    doc.text('Status: LUNAS & SELESAI', { align: 'center' });
+    doc.text('Terima kasih telah memesan!', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.font('Helvetica-Bold').text('Scan & Buka E-Catalog:', { align: 'center' });
+    doc.fillColor('blue').text('https://titip.shoopy.my.id', { align: 'center', link: 'https://titip.shoopy.my.id' });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

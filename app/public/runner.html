@@ -693,3 +693,20 @@ _Terima kasih telah memesan melalui Titip Shoopy! Saldo cashback reward Anda tel
     </script>
 </body>
 </html>
+const receiptText = `*🧾 STRUK DIGITAL - TITIP SHOOPY*
+----------------------------------------
+*Status:* ✅ LUNAS & SELESAI
+*Order ID:* #${orderId}
+*Nama Pemesan:* ${shooperName}
+----------------------------------------
+*Rincian Pesanan:*
+${itemsSummary}
+----------------------------------------
+*Total Tagihan COD:* Rp ${parseFloat(totalPrice).toLocaleString('id-ID')}
+*Diantar Oleh Runner:* ${currentRunnerUser.name}
+----------------------------------------
+🌐 *Ingin pesan lagi atau lihat menu lainnya?*
+Akses E-Catalog kami di sini: 
+https://titip.shoopy.my.id
+
+_Terima kasih telah memesan melalui Titip Shoopy!_ 🙏✨`;

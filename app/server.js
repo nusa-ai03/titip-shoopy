@@ -27,6 +27,10 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+app.get('/merchant', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'merchant.html'));
+});
+
 // ==================== API ALL MASTER SETTINGS ====================
 app.get('/api/settings', async (req, res) => {
   try {
@@ -64,7 +68,7 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       SELECT 
         COUNT(o.id) AS total_orders,
         COUNT(CASE WHEN o.status = 'completed' THEN 1 END) AS completed_orders,
-        COUNT(CASE WHEN o.status IN ('pending_confirmation', 'confirmed') THEN 1 END) AS pending_orders,
+        COUNT(CASE WHEN o.status IN ('pending_confirmation', 'confirmed', 'preparing') THEN 1 END) AS pending_orders,
         COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.total_price ELSE 0 END), 0) AS total_revenue_gmv,
         COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.service_fee ELSE 0 END), 0) AS total_service_fee
       FROM orders o
@@ -155,7 +159,7 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
   }
 });
 
-// ==================== API ADMIN AUTH & RUNNER ZONING ====================
+// ==================== API AUTH ADMIN & MERCHANT POS ====================
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
   const cleanUser = (username || '').trim().toLowerCase();
@@ -165,6 +169,34 @@ app.post('/api/admin/login', (req, res) => {
     res.json({ success: true, token: 'admin-authenticated-token-yasir' });
   } else {
     res.status(401).json({ error: 'Username atau Password Admin salah!' });
+  }
+});
+
+app.post('/api/auth/login-merchant', async (req, res) => {
+  try {
+    const { phone, pin } = req.body;
+    let formattedPhone = phone.trim();
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '62' + formattedPhone.substring(1);
+    }
+
+    const resMerchant = await pool.query(
+      'SELECT id, name, phone_number, COALESCE(is_open, TRUE) AS is_open, COALESCE(pin, \'123456\') AS pin FROM merchants WHERE phone_number = $1',
+      [formattedPhone]
+    );
+
+    if (resMerchant.rows.length === 0) {
+      return res.status(404).json({ error: 'Nomor WhatsApp Warung belum terdaftar sebagai Merchant.' });
+    }
+
+    const merchant = resMerchant.rows[0];
+    if (merchant.pin !== (pin || '123456')) {
+      return res.status(401).json({ error: 'PIN Kasir Merchant salah!' });
+    }
+
+    res.json({ success: true, merchant });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -347,11 +379,61 @@ app.post('/api/admin/approve-runner/:id', async (req, res) => {
   }
 });
 
-// ==================== API MERCHANT & JAM OPERASIONAL ====================
+// ==================== API MERCHANT & POS ====================
 app.get('/api/admin/merchants', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, phone_number, is_active, COALESCE(is_open, TRUE) AS is_open, COALESCE(open_time::text, \'07:00:00\') AS open_time, COALESCE(close_time::text, \'17:00:00\') AS close_time FROM merchants ORDER BY id ASC');
+    const result = await pool.query('SELECT id, name, phone_number, is_active, COALESCE(is_open, TRUE) AS is_open, COALESCE(open_time::text, \'07:00:00\') AS open_time, COALESCE(close_time::text, \'17:00:00\') AS close_time, COALESCE(pin, \'123456\') AS pin FROM merchants ORDER BY id ASC');
     res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API Khusus Merchant POS: Ambil menu & pesanan milik merchant tersebut
+app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
+  try {
+    const { merchantId } = req.params;
+    
+    // 1. Info merchant
+    const mRes = await pool.query('SELECT id, name, phone_number, is_open, open_time, close_time FROM merchants WHERE id = $1', [merchantId]);
+    if (mRes.rows.length === 0) return res.status(404).json({ error: 'Merchant tidak ditemukan' });
+    const merchant = mRes.rows[0];
+
+    // 2. Daftar Menu & status ketersediaan
+    const menuRes = await pool.query('SELECT id, name, price, COALESCE(is_available, TRUE) AS is_available, image_url FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [merchantId]);
+
+    // 3. Pesanan Masuk untuk Merchant Ini
+    const orderRes = await pool.query(`
+      SELECT o.id AS order_id, o.status, o.total_price, o.created_at,
+             u.name AS shooper_name, u.phone_number, u.department_location,
+             STRING_AGG(CONCAT(oi.quantity, 'x ', mn.name, ' (Rp ', oi.price_per_item, ')'), ', ') AS items_summary
+      FROM orders o
+      JOIN users u ON o.shooper_id = u.id
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN menus mn ON oi.menu_id = mn.id
+      WHERE mn.merchant_id = $1 AND o.status IN ('confirmed', 'preparing', 'completed')
+      GROUP BY o.id, o.status, o.total_price, o.created_at, u.name, u.phone_number, u.department_location
+      ORDER BY o.id DESC
+      LIMIT 20
+    `, [merchantId]);
+
+    res.json({
+      merchant,
+      menus: menuRes.rows,
+      orders: orderRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API Merchant Toggle Menu Ready / Habis
+app.post('/api/merchant/menu-toggle/:menuId', async (req, res) => {
+  try {
+    const { menuId } = req.params;
+    const { is_available } = req.body;
+    await pool.query('UPDATE menus SET is_available = $1 WHERE id = $2', [is_available, menuId]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -368,6 +450,7 @@ app.get('/api/merchants/active', async (req, res) => {
              mn.id AS menu_id, mn.name AS menu_name, mn.price AS original_price,
              COALESCE(mn.merchant_discount, 0) AS merchant_discount,
              COALESCE(mn.fee_per_item, 1000) AS fee_per_item,
+             COALESCE(mn.is_available, TRUE) AS is_available,
              mn.image_url
       FROM merchants m
       LEFT JOIN menus mn ON m.id = mn.merchant_id AND mn.is_available = TRUE
@@ -392,7 +475,7 @@ app.get('/api/merchants/active', async (req, res) => {
           menus: []
         };
       }
-      if (row.menu_id) {
+      if (row.menu_id && row.is_available) {
         const origPrice = parseFloat(row.original_price);
         const feeItem = parseFloat(row.fee_per_item);
         const finalSellPrice = origPrice + feeItem;
@@ -417,20 +500,20 @@ app.get('/api/merchants/active', async (req, res) => {
 
 async function handleSaveMerchant(req, res) {
   try {
-    const { name, phone, open_time, close_time } = req.body;
+    const { name, phone, open_time, close_time, pin } = req.body;
     let formattedPhone = (phone || '').trim();
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '62' + formattedPhone.substring(1);
     }
     await pool.query(
-      'INSERT INTO merchants (name, phone_number, open_time, close_time, is_open) VALUES ($1, $2, $3, $4, TRUE)',
-      [name, formattedPhone, open_time || '07:00', close_time || '17:00']
+      'INSERT INTO merchants (name, phone_number, open_time, close_time, is_open, pin) VALUES ($1, $2, $3, $4, TRUE, $5)',
+      [name, formattedPhone, open_time || '07:00', close_time || '17:00', pin || '123456']
     );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+});
 
 async function handleToggleMerchantOpen(req, res) {
   try {
@@ -441,19 +524,19 @@ async function handleToggleMerchantOpen(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+});
 
 async function handleUpdateMerchantHours(req, res) {
   try {
     const { id } = req.params;
-    const { name, phone, open_time, close_time } = req.body;
+    const { name, phone, open_time, close_time, pin } = req.body;
     let formattedPhone = (phone || '').trim();
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '62' + formattedPhone.substring(1);
     }
     await pool.query(
-      'UPDATE merchants SET name = $1, phone_number = $2, open_time = $3, close_time = $4 WHERE id = $5',
-      [name, formattedPhone, open_time, close_time, id]
+      'UPDATE merchants SET name = $1, phone_number = $2, open_time = $3, close_time = $4, pin = COALESCE($5, pin) WHERE id = $6',
+      [name, formattedPhone, open_time, close_time, pin, id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -475,8 +558,8 @@ app.post('/api/admin/menus', async (req, res) => {
     const finalImg = image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
     
     await pool.query(
-      `INSERT INTO menus (merchant_id, name, price, merchant_discount, fee_per_item, image_url) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO menus (merchant_id, name, price, merchant_discount, fee_per_item, image_url, is_available) 
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)`,
       [merchant_id, name, price, merchant_discount || 0, fee_per_item || 1000, finalImg]
     );
     res.json({ success: true });
@@ -557,7 +640,7 @@ app.get('/api/shooper/my-orders', async (req, res) => {
   }
 });
 
-// ==================== API ORDERS & PDF RECEIPT GENERATOR ====================
+// ==================== API ORDERS & PDF RECEIPT ====================
 app.post('/api/orders', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -641,7 +724,6 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// Endpoint PDF Receipt Generator (Struk Digital dengan E-Catalog Link)
 app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;

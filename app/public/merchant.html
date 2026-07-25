@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant POS Kasir - Titip Shoopy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="min-h-screen bg-base-200 text-base-content pb-20">
+
+    <!-- LOGIN KASIR MERCHANT -->
+    <div id="merchant-login-box" class="min-h-screen flex items-center justify-center p-4">
+        <div class="card bg-base-100 shadow-xl border border-success/30 w-full max-w-md p-6 space-y-4">
+            <div class="text-center">
+                <h1 class="text-2xl font-black text-success">🏪 Merchant POS Kasir</h1>
+                <p class="text-xs opacity-70">Masukan Nomor WhatsApp Warung & PIN Kasir</p>
+            </div>
+            <div class="form-control space-y-3">
+                <div>
+                    <label class="label text-xs font-bold">Nomor WA Warung</label>
+                    <input type="tel" id="m-login-phone" placeholder="Contoh: 081234567890" class="input input-bordered w-full text-sm">
+                </div>
+                <div>
+                    <label class="label text-xs font-bold">PIN Kasir (Default: 123456)</label>
+                    <input type="password" id="m-login-pin" placeholder="••••••" class="input input-bordered w-full text-sm">
+                </div>
+                <button onclick="loginMerchant()" class="btn btn-success text-white w-full shadow-lg font-bold">Masuk POS Merchant</button>
+            </div>
+            <div class="text-center pt-2">
+                <a href="/" class="text-xs link link-neutral">← Kembali ke Katalog Utama</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD POS MERCHANT -->
+    <div id="merchant-main-content" class="hidden">
+        <header class="navbar bg-base-100 shadow-md px-4 sticky top-0 z-40 border-b border-success/20 flex justify-between">
+            <div>
+                <h1 class="text-md font-bold text-success flex items-center gap-2">
+                    <span>🏪 <span id="m-display-name">Warung</span></span>
+                    <span class="badge badge-success text-[9px] font-bold">POS Active</span>
+                </h1>
+            </div>
+            <button onclick="logoutMerchant()" class="btn btn-error btn-xs font-bold">Logout</button>
+        </header>
+
+        <main class="max-w-md mx-auto p-4 space-y-4">
+
+            <!-- TAB MENU POS -->
+            <div class="role-tablist tabs tabs-boxed bg-base-100 p-1 shadow-sm font-bold text-xs">
+                <a role="tab" onclick="switchMerchantTab('orders')" id="tab-m-orders" class="tab tab-active">📦 Pesanan Masuk</a>
+                <a role="tab" onclick="switchMerchantTab('menus')" id="tab-m-menus" class="tab">🍽️ Stok Menu (Habis/Ada)</a>
+            </div>
+
+            <!-- TAB 1: PESANAN MASUK LIVE -->
+            <section id="sec-m-orders" class="space-y-4">
+                <div class="flex justify-between items-center bg-base-100 p-3 rounded-2xl border shadow-sm">
+                    <span class="text-xs font-bold">Daftar Orderan Masuk:</span>
+                    <button onclick="loadMerchantDashboard()" class="btn btn-xs btn-success text-white font-bold">🔄 Refresh Pesanan</button>
+                </div>
+
+                <div id="merchant-orders-container" class="space-y-3">
+                    <p class="text-xs opacity-70 text-center py-6">Memuat pesanan masuk...</p>
+                </div>
+            </section>
+
+            <!-- TAB 2: MANAJEMEN STOK MENU -->
+            <section id="sec-m-menus" class="card bg-base-100 p-4 border border-success/20 shadow-md space-y-3 hidden">
+                <h3 class="font-bold text-sm text-success border-b pb-2">Atur Ketersediaan Stok Menu</h3>
+                <div id="merchant-menu-list" class="space-y-2.5 max-h-96 overflow-y-auto pr-1 text-xs">
+                    <p class="opacity-70 text-center py-4">Memuat daftar menu...</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        let currentMerchant = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkMerchantSession();
+        });
+
+        function checkMerchantSession() {
+            const saved = localStorage.getItem('merchant_user');
+            if (saved) {
+                currentMerchant = JSON.parse(saved);
+                document.getElementById('merchant-login-box').classList.add('hidden');
+                document.getElementById('merchant-main-content').classList.remove('hidden');
+                document.getElementById('m-display-name').innerText = currentMerchant.name;
+                loadMerchantDashboard();
+            } else {
+                currentMerchant = null;
+                document.getElementById('merchant-login-box').classList.remove('hidden');
+                document.getElementById('merchant-main-content').classList.add('hidden');
+            }
+        }
+
+        async function loginMerchant() {
+            const phone = document.getElementById('m-login-phone').value.trim();
+            const pin = document.getElementById('m-login-pin').value.trim();
+            if (!phone) return alert('Masukkan nomor WA warung!');
+
+            try {
+                const res = await fetch('/api/auth/login-merchant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, pin })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('merchant_user', JSON.stringify(data.merchant));
+                    checkMerchantSession();
+                } else {
+                    alert(data.error || 'Login gagal.');
+                }
+            } catch (err) {
+                alert('Gagal menghubungkan ke server.');
+            }
+        }
+
+        function logoutMerchant() {
+            localStorage.removeItem('merchant_user');
+            checkMerchantSession();
+        }
+
+        function switchMerchantTab(tab) {
+            ['orders', 'menus'].forEach(t => {
+                document.getElementById(`sec-m-${t}`).classList.add('hidden');
+                document.getElementById(`tab-m-${t}`).classList.remove('tab-active');
+            });
+            document.getElementById(`sec-m-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-m-${tab}`).classList.add('tab-active');
+        }
+
+        async function loadMerchantDashboard() {
+            if (!currentMerchant) return;
+            try {
+                const res = await fetch(`/api/merchant/dashboard/${currentMerchant.id}`);
+                const data = await res.json();
+                
+                // 1. Render Orders
+                const orderCont = document.getElementById('merchant-orders-container');
+                if (data.orders.length === 0) {
+                    orderCont.innerHTML = '<p class="text-xs opacity-70 text-center py-6">Belum ada pesanan aktif.</p>';
+                } else {
+                    orderCont.innerHTML = '';
+                    data.orders.forEach(o => {
+                        let badge = o.status === 'completed' 
+                            ? '<span class="badge badge-success text-[10px] font-bold">SELESAI & LUNAS</span>'
+                            : '<span class="badge badge-warning text-[10px] font-bold">SEDANG DIPROSES</span>';
+
+                        orderCont.innerHTML += `
+                            <div class="p-3 bg-base-100 rounded-xl border border-base-300 space-y-1.5 text-xs shadow-sm">
+                                <div class="flex justify-between items-center font-bold">
+                                    <span class="text-success">Order #${o.order_id} (${o.shooper_name})</span>
+                                    ${badge}
+                                </div>
+                                <p class="opacity-80 font-medium">📍 Antar ke: ${o.department_location || 'Umum'}</p>
+                                <p class="opacity-90">${o.items_summary}</p>
+                                <div class="pt-1 border-t flex justify-between items-center font-bold">
+                                    <span>WA: ${o.phone_number}</span>
+                                    <span class="text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // 2. Render Menus
+                const menuCont = document.getElementById('merchant-menu-list');
+                if (data.menus.length === 0) {
+                    menuCont.innerHTML = '<p class="opacity-70 text-center">Belum ada menu.</p>';
+                } else {
+                    menuCont.innerHTML = '';
+                    data.menus.forEach(m => {
+                        const isAvail = m.is_available;
+                        const btnToggle = isAvail
+                            ? `<button onclick="toggleMenuAvailability(${m.id}, false)" class="btn btn-success btn-xs text-white font-bold">🟢 Tersedia</button>`
+                            : `<button onclick="toggleMenuAvailability(${m.id}, true)" class="btn btn-error btn-xs text-white font-bold">🔴 Habis (Tutup)</button>`;
+
+                        menuCont.innerHTML += `
+                            <div class="p-2.5 bg-base-200 rounded-xl border flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold">${m.name}</p>
+                                    <p class="text-[10px] opacity-70">Rp ${parseFloat(m.price).toLocaleString('id-ID')}</p>
+                                </div>
+                                <div>${btnToggle}</div>
+                            </div>
+                        `;
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function toggleMenuAvailability(menuId, is_available) {
+            try {
+                const res = await fetch(`/api/merchant/menu-toggle/${menuId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_available })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadMerchantDashboard();
+                }
+            } catch (err) {
+                alert('Gagal mengubah status menu.');
+            }
+        }
+    </script>
+</body>
+</html>

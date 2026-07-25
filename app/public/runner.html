@@ -54,7 +54,7 @@
                 <a role="tab" onclick="switchRunnerTab('locations')" id="tab-runner-locations" class="tab">📍 Location</a>
             </div>
 
-            <!-- TAB 1: BATCH PENGANTARAN + CLAIM LOCK + VERIFIKASI WA -->
+            <!-- TAB 1: BATCH PENGANTARAN + KONFIRMASI SHOOPER & MERCHANT -->
             <section id="sec-runner-orders" class="space-y-4">
                 <div class="flex justify-between items-center bg-base-100 p-3 rounded-2xl border shadow-sm">
                     <span class="text-xs font-bold">Orderan Di Zona Anda:</span>
@@ -66,14 +66,12 @@
                 </div>
             </section>
 
-            <!-- TAB 2: MASTER MERCHANT & BUKA/TUTUP WARUNG -->
+            <!-- TAB 2: MASTER MERCHANT & KIRIM REKAP WA KE WARUNG -->
             <section id="sec-runner-merchants" class="card bg-base-100 p-4 border border-primary/20 shadow-md space-y-4 hidden">
                 <div class="flex justify-between items-center border-b pb-2">
-                    <h3 class="font-bold text-sm text-primary">🏪 Kelola Warung & Jam Buka</h3>
-                    <a id="btn-wa-rekap-link" class="btn btn-xs btn-success text-white font-bold hidden" target="_blank">💬 WA Rekap All</a>
+                    <h3 class="font-bold text-sm text-primary">🏪 Kelola Warung & Rekap WA</h3>
                 </div>
 
-                <!-- Form Tambah Merchant Baru oleh Runner -->
                 <div class="bg-base-200 p-3 rounded-xl space-y-2 border border-base-300">
                     <h4 class="font-bold text-xs text-primary">+ Tambah Warung Baru</h4>
                     <div class="grid grid-cols-2 gap-2 text-xs">
@@ -91,7 +89,6 @@
                     <button onclick="addRunnerMerchant()" class="btn btn-primary btn-sm font-bold w-full mt-1">+ Simpan Warung Baru</button>
                 </div>
 
-                <!-- Daftar Merchant & Switch Buka/Tutup Manual -->
                 <div id="runner-merchant-management-list" class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
                     <p class="text-xs opacity-70">Memuat daftar warung...</p>
                 </div>
@@ -298,8 +295,8 @@
                             statusBadge = `<span class="badge badge-ghost text-[10px] font-bold">Punya ${o.runner_name}</span>`;
                         } else if (isClaimedByMe) {
                             statusBadge = isConfirmed 
-                                ? '<span class="badge badge-success text-[10px] font-bold">VERIFIED REAL</span>'
-                                : '<span class="badge badge-warning text-[10px] font-bold font-mono">ORDER TERKUNCI (SAYA)</span>';
+                                ? '<span class="badge badge-success text-[10px] font-bold">VERIFIED REAL (SIAP KE MERCHANT)</span>'
+                                : '<span class="badge badge-warning text-[10px] font-bold font-mono">BUTUH KONFIRMASI WA SHOOPER</span>';
                         } else {
                             statusBadge = '<span class="badge badge-outline badge-primary text-[10px] font-bold animate-pulse">BELUM DIKLAIM</span>';
                         }
@@ -316,12 +313,23 @@ Mohon balas "OK" jika pesanan sudah benar agar segera diproses Runner. Terima ka
                         if (!o.runner_id) {
                             actionBtn = `<button onclick="claimOrder(${o.order_id})" class="btn btn-warning btn-xs font-black w-full shadow">📌 Klaim & Kunci Pesanan Ini</button>`;
                         } else if (isClaimedByMe) {
-                            actionBtn = isConfirmed
-                                ? `<button onclick="completeOrder(${o.order_id})" class="btn btn-success btn-xs font-bold shadow w-full">✓ Selesai & Lunas COD</button>`
-                                : `<div class="flex gap-1 w-full">
-                                     <a href="${waUrl}" target="_blank" class="btn btn-warning btn-xs font-bold text-gray-900 flex-1">💬 Chat WA</a>
+                            if (!isConfirmed) {
+                                // Tahap 1: Konfirmasi ke Shooper via WA -> Verifikasi Real
+                                actionBtn = `<div class="flex gap-1 w-full">
+                                     <a href="${waUrl}" target="_blank" class="btn btn-warning btn-xs font-bold text-gray-900 flex-1">💬 Chat WA Shooper</a>
                                      <button onclick="confirmOrder(${o.order_id})" class="btn btn-primary btn-xs font-bold flex-1">✅ Order Real</button>
                                    </div>`;
+                            } else {
+                                // Tahap 2: Setelah Order Real, Runner klik untuk Kirim Rekap WA ke Merchant & Tombol Selesai Struk
+                                actionBtn = `<div class="space-y-1.5 w-full">
+                                    <button onclick="openMerchantWaForOrder(${o.order_id}, '${o.items_summary.replace(/'/g, "\\'")}')" class="btn btn-success btn-xs font-bold text-white w-full shadow">
+                                        💬 Kirim Rekap Order WA ke Merchant
+                                    </button>
+                                    <button onclick="completeOrder(${o.order_id}, '${o.phone_number}', '${o.shooper_name}', '${o.items_summary.replace(/'/g, "\\'")}', ${o.total_price})" class="btn btn-outline btn-success btn-xs font-bold w-full">
+                                        ✓ Selesai & Kirim Struk ke Shooper
+                                    </button>
+                                   </div>`;
+                            }
                         } else {
                             actionBtn = `<span class="text-[11px] opacity-50 italic">Dipegang oleh ${o.runner_name}</span>`;
                         }
@@ -388,12 +396,57 @@ Mohon balas "OK" jika pesanan sudah benar agar segera diproses Runner. Terima ka
             }
         }
 
-        async function completeOrder(orderId) {
-            if (!confirm('Tandai pesanan ini sudah diantar dan LUNAS COD?')) return;
+        // Fungsi Buka WhatsApp ke Merchant dengan Detail Pesanan Terverifikasi
+        async function openMerchantWaForOrder(orderId, itemsSummary) {
+            try {
+                const res = await fetch('/api/admin/merchants');
+                const merchants = await res.json();
+                if (merchants.length === 0) return alert('Belum ada merchant terdaftar.');
+
+                // Ambil merchant pertama atau biarkan runner memilih warung utama
+                const merchant = merchants[0]; 
+
+                const orderText = `*🏪 KONFIRMASI PESANAN - TITIP SHOOPY*
+----------------------------------------
+*Order ID:* #${orderId}
+*Catatan / Menu Disiapkan:*
+${itemsSummary}
+----------------------------------------
+Mohon segera dipersiapkan untuk diambil oleh Runner Titip Shoopy. Terima kasih! 🙏`;
+
+                const encodedText = encodeURIComponent(orderText);
+                const waUrl = `https://wa.me/${merchant.phone_number}?text=${encodedText}`;
+                window.open(waUrl, '_blank');
+            } catch (err) {
+                alert('Gagal membuka WhatsApp Merchant.');
+            }
+        }
+
+        async function completeOrder(orderId, phone, shooperName, itemsSummary, totalPrice) {
+            if (!confirm(`Tandai pesanan #${orderId} (${shooperName}) sudah diantar dan LUNAS COD?`)) return;
+            
             try {
                 const res = await fetch(`/api/runner/complete-order/${orderId}`, { method: 'POST' });
                 const result = await res.json();
                 if (result.success) {
+                    const receiptText = `*🧾 STRUK DIGITAL - TITIP SHOOPY*
+----------------------------------------
+*Status:* ✅ LUNAS & SELESAI
+*Order ID:* #${orderId}
+*Nama Pemesan:* ${shooperName}
+----------------------------------------
+*Rincian Pesanan:*
+${itemsSummary}
+----------------------------------------
+*Total Tagihan COD:* Rp ${parseFloat(totalPrice).toLocaleString('id-ID')}
+*Diantar Oleh Runner:* ${currentRunnerUser.name}
+----------------------------------------
+_Terima kasih telah memesan melalui Titip Shoopy! Saldo cashback reward Anda telah ditambahkan._ 🙏✨`;
+
+                    const encodedReceipt = encodeURIComponent(receiptText);
+                    const waReceiptUrl = `https://wa.me/${phone}?text=${encodedReceipt}`;
+                    window.open(waReceiptUrl, '_blank');
+
                     loadDeliverySummary();
                 }
             } catch (err) {
@@ -497,7 +550,6 @@ Mohon balas "OK" jika pesanan sudah benar agar segera diproses Runner. Terima ka
             document.getElementById('r-edit-m-id').value = id;
             document.getElementById('r-edit-m-name').value = name;
             document.getElementById('r-edit-m-phone').value = phone;
-            document.getElementById('r-[edit]-m-open') ? document.getElementById('r-edit-m-open').value = open_time : null;
             if (document.getElementById('r-edit-m-open')) document.getElementById('r-edit-m-open').value = open_time;
             if (document.getElementById('r-edit-m-close')) document.getElementById('r-edit-m-close').value = close_time;
             document.getElementById('runner-edit-merchant-modal').showModal();

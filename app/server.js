@@ -389,20 +389,16 @@ app.get('/api/admin/merchants', async (req, res) => {
   }
 });
 
-// API Khusus Merchant POS: Ambil menu & pesanan milik merchant tersebut
 app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
   try {
     const { merchantId } = req.params;
     
-    // 1. Info merchant
     const mRes = await pool.query('SELECT id, name, phone_number, is_open, open_time, close_time FROM merchants WHERE id = $1', [merchantId]);
     if (mRes.rows.length === 0) return res.status(404).json({ error: 'Merchant tidak ditemukan' });
     const merchant = mRes.rows[0];
 
-    // 2. Daftar Menu & status ketersediaan
     const menuRes = await pool.query('SELECT id, name, price, COALESCE(is_available, TRUE) AS is_available, image_url FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [merchantId]);
 
-    // 3. Pesanan Masuk untuk Merchant Ini
     const orderRes = await pool.query(`
       SELECT o.id AS order_id, o.status, o.total_price, o.created_at,
              u.name AS shooper_name, u.phone_number, u.department_location,
@@ -427,7 +423,6 @@ app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
   }
 });
 
-// API Merchant Toggle Menu Ready / Habis
 app.post('/api/merchant/menu-toggle/:menuId', async (req, res) => {
   try {
     const { menuId } = req.params;
@@ -513,7 +508,7 @@ async function handleSaveMerchant(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}
 
 async function handleToggleMerchantOpen(req, res) {
   try {
@@ -524,7 +519,7 @@ async function handleToggleMerchantOpen(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}
 
 async function handleUpdateMerchantHours(req, res) {
   try {

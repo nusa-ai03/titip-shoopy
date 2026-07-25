@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Merchant POS Kasir - Titip Shoopy</title>
+    <title>Odoo 18 POS - Titip Shoopy Merchant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
 </head>
-<body class="min-h-screen bg-base-200 text-base-content pb-20">
+<body class="min-h-screen bg-base-200 text-base-content flex flex-col">
 
     <!-- LOGIN KASIR MERCHANT -->
-    <div id="merchant-login-box" class="min-h-screen flex items-center justify-center p-4">
-        <div class="card bg-base-100 shadow-xl border border-success/30 w-full max-w-md p-6 space-y-4">
-            <div class="text-center">
-                <h1 class="text-2xl font-black text-success">🏪 Merchant POS Kasir</h1>
-                <p class="text-xs opacity-70">Masukan Nomor WhatsApp Warung & PIN Kasir</p>
+    <div id="merchant-login-box" class="min-h-screen flex items-center justify-center p-4 bg-slate-900">
+        <div class="card bg-base-100 shadow-2xl border border-emerald-500/30 w-full max-w-md p-8 space-y-6">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-emerald-600 text-white rounded-2xl mx-auto flex items-center justify-center font-black text-xl shadow">O</div>
+                <h1 class="text-2xl font-black text-emerald-600">Odoo 18 POS Kasir</h1>
+                <p class="text-xs opacity-70">Masukan WhatsApp Warung & PIN Kasir</p>
             </div>
             <div class="form-control space-y-3">
                 <div>
@@ -25,7 +26,7 @@
                     <label class="label text-xs font-bold">PIN Kasir (Default: 123456)</label>
                     <input type="password" id="m-login-pin" placeholder="••••••" class="input input-bordered w-full text-sm">
                 </div>
-                <button onclick="loginMerchant()" class="btn btn-success text-white w-full shadow-lg font-bold">Masuk POS Merchant</button>
+                <button onclick="loginMerchant()" class="btn btn-success text-white w-full shadow-lg font-bold">Buka Sesi POS Kasir</button>
             </div>
             <div class="text-center pt-2">
                 <a href="/" class="text-xs link link-neutral">← Kembali ke Katalog Utama</a>
@@ -33,51 +34,84 @@
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD POS MERCHANT -->
-    <div id="merchant-main-content" class="hidden">
-        <header class="navbar bg-base-100 shadow-md px-4 sticky top-0 z-40 border-b border-success/20 flex justify-between">
-            <div>
-                <h1 class="text-md font-bold text-success flex items-center gap-2">
-                    <span>🏪 <span id="m-display-name">Warung</span></span>
-                    <span class="badge badge-success text-[9px] font-bold">POS Active</span>
-                </h1>
+    <!-- MAIN ODOO 18 POS INTERFACE -->
+    <div id="merchant-main-content" class="hidden flex flex-col h-screen overflow-hidden">
+        
+        <!-- ODOO TOPBAR NAVBAR -->
+        <header class="navbar bg-base-100 shadow px-4 border-b flex justify-between items-center z-30">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold">O</div>
+                <div>
+                    <h1 class="text-sm font-black text-emerald-700 leading-tight" id="m-display-name">Warung</h1>
+                    <p class="text-[10px] opacity-70">Odoo 18 Point of Sale (POS Active)</p>
+                </div>
             </div>
-            <button onclick="logoutMerchant()" class="btn btn-error btn-xs font-bold">Logout</button>
+            <div class="flex items-center gap-3">
+                <button onclick="loadMerchantDashboard()" class="btn btn-sm btn-outline btn-success font-bold text-xs">🔄 Refresh Sesi</button>
+                <button onclick="logoutMerchant()" class="btn btn-sm btn-error text-white font-bold text-xs">Tutup Sesi (Logout)</button>
+            </div>
         </header>
 
-        <main class="max-w-md mx-auto p-4 space-y-4">
+        <!-- Odoo 18 SPLIT WORKSPACE -->
+        <div class="flex-1 flex overflow-hidden">
+            
+            <!-- LEFT PANEL: GRID PRODUK / MENU KULINER (ODOO STYLE) -->
+            <div class="flex-1 flex flex-col p-4 overflow-y-auto space-y-4 bg-base-200">
+                
+                <!-- Search & Filter Bar -->
+                <div class="flex flex-col sm:flex-row gap-2 justify-between items-center bg-base-100 p-3 rounded-2xl shadow-sm border">
+                    <div class="relative w-full sm:w-72">
+                        <span class="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                        <input type="text" id="pos-search" onkeyup="filterPosMenus()" placeholder="Cari menu di POS..." class="input input-bordered input-sm w-full pl-8 text-xs">
+                    </div>
+                    <div class="flex gap-1.5 overflow-x-auto w-full sm:w-auto">
+                        <button onclick="filterCat('all')" class="cat-chip btn btn-xs btn-active btn-success text-white font-bold">Semua Menu</button>
+                        <button onclick="filterCat('tersedia')" class="cat-chip btn btn-xs btn-ghost border">Tersedia</button>
+                        <button onclick="filterCat('habis')" class="cat-chip btn btn-xs btn-ghost border">Habis</button>
+                    </div>
+                </div>
 
-            <!-- TAB MENU POS -->
-            <div class="role-tablist tabs tabs-boxed bg-base-100 p-1 shadow-sm font-bold text-xs">
-                <a role="tab" onclick="switchMerchantTab('orders')" id="tab-m-orders" class="tab tab-active">📦 Pesanan Masuk</a>
-                <a role="tab" onclick="switchMerchantTab('menus')" id="tab-m-menus" class="tab">🍽️ Stok Menu (Habis/Ada)</a>
+                <!-- Product Grid (Odoo Card Grid) -->
+                <div>
+                    <h3 class="font-black text-xs text-emerald-800 uppercase tracking-wider mb-2">Daftar Katalog Produk & Stok Warung</h3>
+                    <div id="pos-menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <p class="text-xs opacity-70 col-span-full text-center py-12">Memuat grid produk...</p>
+                    </div>
+                </div>
             </div>
 
-            <!-- TAB 1: PESANAN MASUK LIVE -->
-            <section id="sec-m-orders" class="space-y-4">
-                <div class="flex justify-between items-center bg-base-100 p-3 rounded-2xl border shadow-sm">
-                    <span class="text-xs font-bold">Daftar Orderan Masuk:</span>
-                    <button onclick="loadMerchantDashboard()" class="btn btn-xs btn-success text-white font-bold">🔄 Refresh Pesanan</button>
+            <!-- RIGHT PANEL: ODOO TICKET / PESANAN MASUK (LIVE ORDERS) -->
+            <div class="w-full sm:w-96 bg-base-100 border-l flex flex-col shadow-xl z-20">
+                <div class="p-4 border-b bg-base-200/50 flex justify-between items-center">
+                    <h2 class="font-black text-xs uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                        <span>📦</span> Live Order Ticket POS
+                    </h2>
+                    <span id="order-count-badge" class="badge badge-success badge-sm text-white font-bold">0 Active</span>
                 </div>
 
-                <div id="merchant-orders-container" class="space-y-3">
-                    <p class="text-xs opacity-70 text-center py-6">Memuat pesanan masuk...</p>
+                <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto p-4 space-y-3 divide-y divide-base-200">
+                    <p class="text-xs opacity-70 text-center py-10">Belum ada pesanan masuk.</p>
                 </div>
-            </section>
 
-            <!-- TAB 2: MANAJEMEN STOK MENU -->
-            <section id="sec-m-menus" class="card bg-base-100 p-4 border border-success/20 shadow-md space-y-3 hidden">
-                <h3 class="font-bold text-sm text-success border-b pb-2">Atur Ketersediaan Stok Menu</h3>
-                <div id="merchant-menu-list" class="space-y-2.5 max-h-96 overflow-y-auto pr-1 text-xs">
-                    <p class="opacity-70 text-center py-4">Memuat daftar menu...</p>
+                <!-- Odoo POS Footer Summary -->
+                <div class="p-4 border-t bg-base-200 space-y-2">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span>Status Terminal POS:</span>
+                        <span class="text-success font-black">ONLINE (Connected)</span>
+                    </div>
+                    <button onclick="loadMerchantDashboard()" class="btn btn-success text-white w-full font-black text-xs shadow">
+                        ⚡ Sinkronisasi Pesanan Terbaru
+                    </button>
                 </div>
-            </section>
+            </div>
 
-        </main>
+        </div>
     </div>
 
     <script>
         let currentMerchant = null;
+        let globalMenus = [];
+        let activeCategory = 'all';
 
         document.addEventListener('DOMContentLoaded', () => {
             checkMerchantSession();
@@ -126,76 +160,117 @@
             checkMerchantSession();
         }
 
-        function switchMerchantTab(tab) {
-            ['orders', 'menus'].forEach(t => {
-                document.getElementById(`sec-m-${t}`).classList.add('hidden');
-                document.getElementById(`tab-m-${t}`).classList.remove('tab-active');
-            });
-            document.getElementById(`sec-m-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-m-${tab}`).classList.add('tab-active');
-        }
-
         async function loadMerchantDashboard() {
             if (!currentMerchant) return;
             try {
                 const res = await fetch(`/api/merchant/dashboard/${currentMerchant.id}`);
                 const data = await res.json();
                 
-                // 1. Render Orders
-                const orderCont = document.getElementById('merchant-orders-container');
-                if (data.orders.length === 0) {
-                    orderCont.innerHTML = '<p class="text-xs opacity-70 text-center py-6">Belum ada pesanan aktif.</p>';
-                } else {
-                    orderCont.innerHTML = '';
-                    data.orders.forEach(o => {
-                        let badge = o.status === 'completed' 
-                            ? '<span class="badge badge-success text-[10px] font-bold">SELESAI & LUNAS</span>'
-                            : '<span class="badge badge-warning text-[10px] font-bold">SEDANG DIPROSES</span>';
-
-                        orderCont.innerHTML += `
-                            <div class="p-3 bg-base-100 rounded-xl border border-base-300 space-y-1.5 text-xs shadow-sm">
-                                <div class="flex justify-between items-center font-bold">
-                                    <span class="text-success">Order #${o.order_id} (${o.shooper_name})</span>
-                                    ${badge}
-                                </div>
-                                <p class="opacity-80 font-medium">📍 Antar ke: ${o.department_location || 'Umum'}</p>
-                                <p class="opacity-90">${o.items_summary}</p>
-                                <div class="pt-1 border-t flex justify-between items-center font-bold">
-                                    <span>WA: ${o.phone_number}</span>
-                                    <span class="text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                // 2. Render Menus
-                const menuCont = document.getElementById('merchant-menu-list');
-                if (data.menus.length === 0) {
-                    menuCont.innerHTML = '<p class="opacity-70 text-center">Belum ada menu.</p>';
-                } else {
-                    menuCont.innerHTML = '';
-                    data.menus.forEach(m => {
-                        const isAvail = m.is_available;
-                        const btnToggle = isAvail
-                            ? `<button onclick="toggleMenuAvailability(${m.id}, false)" class="btn btn-success btn-xs text-white font-bold">🟢 Tersedia</button>`
-                            : `<button onclick="toggleMenuAvailability(${m.id}, true)" class="btn btn-error btn-xs text-white font-bold">🔴 Habis (Tutup)</button>`;
-
-                        menuCont.innerHTML += `
-                            <div class="p-2.5 bg-base-200 rounded-xl border flex justify-between items-center">
-                                <div>
-                                    <p class="font-bold">${m.name}</p>
-                                    <p class="text-[10px] opacity-70">Rp ${parseFloat(m.price).toLocaleString('id-ID')}</p>
-                                </div>
-                                <div>${btnToggle}</div>
-                            </div>
-                        `;
-                    });
-                }
+                globalMenus = data.menus || [];
+                renderPosMenus();
+                renderPosOrders(data.orders || []);
 
             } catch (err) {
                 console.error(err);
             }
+        }
+
+        function filterCat(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('.cat-chip').forEach(btn => {
+                btn.classList.remove('btn-success', 'text-white', 'btn-active');
+                btn.classList.add('btn-ghost', 'border');
+            });
+            event.target.classList.remove('btn-ghost', 'border');
+            event.target.classList.add('btn-success', 'text-white', 'btn-active');
+            renderPosMenus();
+        }
+
+        function filterPosMenus() {
+            renderPosMenus();
+        }
+
+        function renderPosMenus() {
+            const grid = document.getElementById('pos-menu-grid');
+            const keyword = document.getElementById('pos-search').value.toLowerCase().trim();
+
+            let filtered = globalMenus;
+            if (activeCategory === 'tersedia') {
+                filtered = filtered.filter(m => m.is_available);
+            } else if (activeCategory === 'habis') {
+                filtered = filtered.filter(m => !m.is_available);
+            }
+
+            if (keyword) {
+                filtered = filtered.filter(m => m.name.toLowerCase().includes(keyword));
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p class="text-xs opacity-70 col-span-full text-center py-10">Tidak ada produk ditemukan.</p>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            filtered.forEach(m => {
+                const isAvail = m.is_available;
+                const badgeStatus = isAvail 
+                    ? '<span class="badge badge-success badge-xs font-bold text-white">Tersedia</span>'
+                    : '<span class="badge badge-error badge-xs font-bold text-white">Habis (Tutup)</span>';
+
+                const btnAction = isAvail
+                    ? `<button onclick="toggleMenuAvailability(${m.id}, false)" class="btn btn-xs btn-error btn-outline font-bold w-full text-[10px]">Tandai Habis</button>`
+                    : `<button onclick="toggleMenuAvailability(${m.id}, true)" class="btn btn-xs btn-success font-bold w-full text-[10px] text-white">Jadikan Tersedia</button>`;
+
+                const imgUrl = m.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=80';
+
+                grid.innerHTML += `
+                    <div class="card bg-base-100 border shadow-sm rounded-2xl overflow-hidden flex flex-col justify-between hover:shadow-md transition">
+                        <div class="relative h-28 bg-base-200">
+                            <img src="${imgUrl}" alt="${m.name}" class="w-full h-full object-cover ${!isAvail ? 'grayscale opacity-50' : ''}">
+                            <div class="absolute top-2 right-2">${badgeStatus}</div>
+                        </div>
+                        <div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-bold text-xs text-gray-900 line-clamp-2">${m.name}</h4>
+                                <p class="font-black text-xs text-emerald-700 mt-0.5">Rp ${parseFloat(m.price).toLocaleString('id-ID')}</p>
+                            </div>
+                            <div class="pt-1">${btnAction}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderPosOrders(orders) {
+            const ticketList = document.getElementById('pos-orders-ticket-list');
+            document.getElementById('order-count-badge').innerText = `${orders.length} Active`;
+
+            if (orders.length === 0) {
+                ticketList.innerHTML = '<p class="text-xs opacity-70 text-center py-10">Belum ada pesanan masuk.</p>';
+                return;
+            }
+
+            ticketList.innerHTML = '';
+            orders.forEach(o => {
+                let badge = o.status === 'completed' 
+                    ? '<span class="badge badge-success badge-xs font-bold">Selesai</span>'
+                    : '<span class="badge badge-warning badge-xs font-bold">Diproses</span>';
+
+                ticketList.innerHTML += `
+                    <div class="pt-3 first:pt-0 space-y-1 text-xs">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-emerald-700">Order #${o.order_id}</span>
+                            ${badge}
+                        </div>
+                        <p class="font-bold text-[11px] text-gray-900">${o.shooper_name} (${o.department_location || 'Umum'})</p>
+                        <p class="opacity-80 text-[11px]">${o.items_summary}</p>
+                        <div class="flex justify-between items-center font-black text-warning pt-1">
+                            <span>WA: ${o.phone_number}</span>
+                            <span>Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>
+                `;
+            });
         }
 
         async function toggleMenuAvailability(menuId, is_available) {
@@ -210,7 +285,7 @@
                     loadMerchantDashboard();
                 }
             } catch (err) {
-                alert('Gagal mengubah status menu.');
+                alert('Gagal mengubah status stok menu.');
             }
         }
     </script>

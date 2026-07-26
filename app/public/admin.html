@@ -81,7 +81,6 @@
                         </div>
                     </div>
 
-                    <!-- TAMBAH MENU FINANSIAL (DISAMAKAN DENGAN HALAMAN MERCHANT) -->
                     <div class="card bg-base-100 p-5 shadow border space-y-3">
                         <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">🍽️ Tambah Menu Finansial</h3>
                         <div class="form-control space-y-2 text-xs">
@@ -101,9 +100,11 @@
                                 <label class="font-bold">Upload Foto Menu (PNG/JPG)</label>
                                 <input type="file" id="menu-file" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full">
                             </div>
-                            <div class="flex items-center gap-2 pt-1">
-                                <input type="checkbox" id="menu-avail" class="checkbox checkbox-xs checkbox-success" checked>
-                                <span class="font-bold">Menu Tersedia (Available)</span>
+                            <div class="grid grid-cols-2 gap-2 pt-1 border-t">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="menu-pubweb" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Publish Web</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="menu-pubpos" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Publish POS</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="menu-avail" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Available</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="menu-sold" class="checkbox checkbox-xs checkbox-error"><span class="font-bold text-error">Sold Out</span></label>
                             </div>
                             <button onclick="saveMenuAdmin()" class="btn btn-sm btn-success text-white font-bold w-full mt-2">Simpan Menu Finansial</button>
                         </div>
@@ -126,7 +127,7 @@
                         <h3 class="font-bold text-sm text-emerald-700">📋 Master Menu Produk</h3>
                         <button onclick="toggleExpandMaster('menu')" id="btn-see-menu" class="btn btn-xs btn-outline btn-success font-bold">See More</button>
                     </div>
-                    <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>Menu</th><th>Warung</th><th>Jual</th><th>Available</th><th>Aksi</th></tr></thead><tbody id="table-menu-master"></tbody></table></div>
+                    <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>Menu</th><th>Warung</th><th>Jual</th><th>Status Publikasi</th><th>Aksi</th></tr></thead><tbody id="table-menu-master"></tbody></table></div>
                 </div>
 
                 <div class="card bg-base-100 p-5 shadow border space-y-3">
@@ -248,7 +249,10 @@
                 if (type === 'merchant') {
                     tbody.innerHTML += `<tr><td>${item.id}</td><td class="font-bold">${item.name}</td><td>${item.phone_number}</td><td>${item.address || '-'}</td><td>${item.is_open ? 'Buka' : 'Tutup'}</td><td><button onclick='openEditModal("merchant", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
                 } else if (type === 'menu') {
-                    tbody.innerHTML += `<tr><td class="font-bold">${item.name}</td><td>${item.merchant_name}</td><td>Rp ${parseFloat(item.price).toLocaleString('id-ID')}</td><td>${item.is_available ? 'Ya' : 'Tidak'}</td><td><button onclick='openEditModal("menu", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
+                    let statusTxt = item.is_available ? '✅ Available' : '❌ Sold';
+                    if (item.publish_web) statusTxt += ' | 🌐 Web';
+                    if (item.publish_pos) statusTxt += ' | 💻 POS';
+                    tbody.innerHTML += `<tr><td class="font-bold">${item.name}</td><td>${item.merchant_name}</td><td>Rp ${parseFloat(item.price).toLocaleString('id-ID')}</td><td>${statusTxt}</td><td><button onclick='openEditModal("menu", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
                 } else if (type === 'user') {
                     tbody.innerHTML += `<tr><td class="font-bold">${item.name}</td><td>${item.phone_number}</td><td>${item.role}</td><td><button onclick='openEditModal("user", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
                 }
@@ -277,8 +281,25 @@
             } else if (type === 'menu') {
                 form.innerHTML = `
                     <label class="font-bold">Nama Menu</label><input type="text" id="edit-mn-name" value="${item.name || ''}" class="input input-bordered input-sm w-full">
-                    <label class="font-bold">Harga Jual (Rp)</label><input type="number" id="edit-mn-price" value="${item.price || 0}" class="input input-bordered input-sm w-full">
-                    <label class="font-bold">Available?</label><select id="edit-mn-avail" class="select select-bordered select-sm w-full"><option value="true" ${item.is_available ? 'selected':''}>Ya</option><option value="false" ${!item.is_available ? 'selected':''}>Tidak</option></select>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="font-bold">Harga Modal (Rp)</label><input type="number" id="edit-mn-cost" value="${item.cost_price || 0}" class="input input-bordered input-sm w-full"></div>
+                        <div><label class="font-bold">Harga Jual (Rp)</label><input type="number" id="edit-mn-price" value="${item.price || 0}" class="input input-bordered input-sm w-full"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="font-bold">Pot. Runner</label><input type="number" id="edit-mn-runner" value="${item.runner_fee || 0}" class="input input-bordered input-sm w-full"></div>
+                        <div><label class="font-bold">Promo Shooper</label><input type="number" id="edit-mn-promo" value="${item.shooper_promo || 0}" class="input input-bordered input-sm w-full"></div>
+                        <div><label class="font-bold">Mark Up</label><input type="number" id="edit-mn-markup" value="${item.markup_price || 0}" class="input input-bordered input-sm w-full"></div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="font-bold">Ganti Foto Menu (Opsional)</label>
+                        <input type="file" id="edit-mn-file" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="edit-mn-pubweb" class="checkbox checkbox-xs checkbox-success" ${item.publish_web !== false ? 'checked':''}><span class="font-bold">Publish Web</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="edit-mn-pubpos" class="checkbox checkbox-xs checkbox-success" ${item.publish_pos !== false ? 'checked':''}><span class="font-bold">Publish POS</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="edit-mn-avail" class="checkbox checkbox-xs checkbox-success" ${item.is_available === true ? 'checked':''}><span class="font-bold">Available</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="edit-mn-sold" class="checkbox checkbox-xs checkbox-error" ${item.is_available === false ? 'checked':''}><span class="font-bold text-error">Sold Out</span></label>
+                    </div>
                 `;
             } else if (type === 'user') {
                 form.innerHTML = `
@@ -291,32 +312,56 @@
         function closeEditModal() { document.getElementById('edit-modal').classList.remove('modal-open'); }
 
         async function submitEditData() {
-            let endpoint = '', payload = { id: activeEditId };
             if (activeEditType === 'merchant') {
-                endpoint = '/api/admin/merchants';
-                payload.name = document.getElementById('edit-m-name').value;
-                payload.phone = document.getElementById('edit-m-phone').value;
-                payload.address = document.getElementById('edit-m-address').value;
-                payload.location_name = document.getElementById('edit-m-loc').value;
-                payload.owner_name = document.getElementById('edit-m-owner').value;
-                payload.map_link = document.getElementById('edit-m-map').value;
+                const payload = {
+                    id: activeEditId,
+                    name: document.getElementById('edit-m-name').value,
+                    phone: document.getElementById('edit-m-phone').value,
+                    address: document.getElementById('edit-m-address').value,
+                    location_name: document.getElementById('edit-m-loc').value,
+                    owner_name: document.getElementById('edit-m-owner').value,
+                    map_link: document.getElementById('edit-m-map').value
+                };
+                const res = await fetch('/api/admin/merchants', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                if ((await res.json()).success) { alert('Berhasil diperbarui!'); closeEditModal(); loadAllAdminData(); }
             } else if (activeEditType === 'menu') {
-                endpoint = '/api/admin/menus';
                 const original = rawMenus.find(m => m.id === activeEditId);
-                payload.merchant_id = original.merchant_id;
-                payload.name = document.getElementById('edit-mn-name').value;
-                payload.selling_price = document.getElementById('edit-mn-price').value;
-                payload.cost_price = original.cost_price; payload.runner_fee = original.runner_fee;
-                payload.shooper_promo = original.shooper_promo; payload.markup_price = original.markup_price;
-                payload.image_url = original.image_url; payload.is_available = document.getElementById('edit-mn-avail').value === 'true';
+                const name = document.getElementById('edit-mn-name').value;
+                const cost_price = document.getElementById('edit-mn-cost').value;
+                const selling_price = document.getElementById('edit-mn-price').value;
+                const runner_fee = document.getElementById('edit-mn-runner').value;
+                const shooper_promo = document.getElementById('edit-mn-promo').value;
+                const markup_price = document.getElementById('edit-mn-markup').value;
+                const publish_web = document.getElementById('edit-mn-pubweb').checked;
+                const publish_pos = document.getElementById('edit-mn-pubpos').checked;
+                const is_available = document.getElementById('edit-mn-avail').checked && !document.getElementById('edit-mn-sold').checked;
+                const fileInput = document.getElementById('edit-mn-file');
+
+                if (fileInput.files.length > 0) {
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        sendAdminMenuEdit(activeEditId, original.merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, e.target.result);
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else {
+                    sendAdminMenuEdit(activeEditId, original.merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, original.image_url);
+                }
             } else if (activeEditType === 'user') {
-                endpoint = '/api/admin/users';
-                payload.name = document.getElementById('edit-u-name').value;
-                payload.phone_number = document.getElementById('edit-u-phone').value;
-                payload.department_location = 'Kantor Kecamatan'; payload.role = 'shooper';
+                const payload = {
+                    id: activeEditId,
+                    name: document.getElementById('edit-u-name').value,
+                    phone_number: document.getElementById('edit-u-phone').value,
+                    department_location: 'Kantor Kecamatan', role: 'shooper'
+                };
+                const res = await fetch('/api/admin/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                if ((await res.json()).success) { alert('Berhasil diperbarui!'); closeEditModal(); loadAllAdminData(); }
             }
-            const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            if ((await res.json()).success) { alert('Berhasil diperbarui!'); closeEditModal(); loadAllAdminData(); }
+        }
+
+        async function sendAdminMenuEdit(id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, image_url) {
+            const payload = { id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos };
+            const res = await fetch('/api/admin/menus', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if ((await res.json()).success) { alert('Menu berhasil diperbarui!'); closeEditModal(); loadAllAdminData(); }
         }
 
         async function saveMerchantAdmin() {
@@ -342,20 +387,22 @@
             const runner_fee = document.getElementById('menu-runner').value;
             const shooper_promo = document.getElementById('menu-promo').value;
             const markup_price = document.getElementById('menu-markup').value;
-            const is_available = document.getElementById('menu-avail').checked;
+            const publish_web = document.getElementById('menu-pubweb').checked;
+            const publish_pos = document.getElementById('menu-pubpos').checked;
+            const is_available = document.getElementById('menu-avail').checked && !document.getElementById('menu-sold').checked;
             const fileInput = document.getElementById('menu-file');
 
             if (fileInput.files.length > 0) {
                 const reader = new FileReader();
-                reader.onload = async function(e) { sendAdminMenuData(merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, e.target.result); };
+                reader.onload = async function(e) { sendAdminMenuData(merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, e.target.result); };
                 reader.readAsDataURL(fileInput.files[0]);
             } else {
-                sendAdminMenuData(merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, '');
+                sendAdminMenuData(merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, '');
             }
         }
 
-        async function sendAdminMenuData(merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, image_url) {
-            const payload = { merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available };
+        async function sendAdminMenuData(merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, image_url) {
+            const payload = { merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos };
             const res = await fetch('/api/admin/menus', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             if ((await res.json()).success) { alert('Menu finansial tersimpan!'); loadAllAdminData(); }
         }

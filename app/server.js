@@ -281,7 +281,7 @@ app.get('/api/runner/delivery-summary', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Admin & Runner Merchant Management
+// Admin & Runner Merchant Management (Auto PIN 123456)
 app.get('/api/admin/merchants', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM merchants ORDER BY id ASC');
@@ -307,7 +307,7 @@ async function saveMerchantHelper(req, res) {
 app.post('/api/runner/merchants', saveMerchantHelper);
 app.post('/api/admin/merchants', saveMerchantHelper);
 
-// ==================== API ADMIN CRUD ====================
+// ==================== API ADMIN & MERCHANT CRUD MENUS ====================
 app.get('/api/admin/menus', async (req, res) => {
   try {
     const result = await pool.query(`SELECT mn.*, m.name AS merchant_name FROM menus mn JOIN merchants m ON mn.merchant_id = m.id ORDER BY mn.id DESC`);
@@ -317,12 +317,16 @@ app.get('/api/admin/menus', async (req, res) => {
 
 app.post('/api/admin/menus', async (req, res) => {
   try {
-    const { id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available } = req.body;
+    const { id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos } = req.body;
     const finalImg = image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
+    const pubWeb = publish_web !== undefined ? publish_web : true;
+    const pubPos = publish_pos !== undefined ? publish_pos : true;
+    const avail = is_available !== undefined ? is_available : true;
+
     if (id) {
-      await pool.query('UPDATE menus SET merchant_id=$1, name=$2, price=$3, cost_price=$4, runner_fee=$5, shooper_promo=$6, markup_price=$7, image_url=$8, is_available=$9 WHERE id=$10', [merchant_id, name, selling_price, cost_price, runner_fee, shooper_promo, markup_price, finalImg, is_available !== undefined ? is_available : true, id]);
+      await pool.query('UPDATE menus SET merchant_id=$1, name=$2, price=$3, cost_price=$4, runner_fee=$5, shooper_promo=$6, markup_price=$7, image_url=$8, is_available=$9, publish_web=$10, publish_pos=$11 WHERE id=$12', [merchant_id, name, selling_price, cost_price, runner_fee, shooper_promo, markup_price, finalImg, avail, pubWeb, pubPos, id]);
     } else {
-      await pool.query('INSERT INTO menus (merchant_id, name, price, cost_price, runner_fee, shooper_promo, markup_price, fee_per_item, image_url, is_available) VALUES ($1, $2, $3, $4, $5, $6, $7, 1000, $8, TRUE)', [merchant_id, name, selling_price || 0, cost_price || 0, runner_fee || 0, shooper_promo || 0, markup_price || 0, finalImg]);
+      await pool.query('INSERT INTO menus (merchant_id, name, price, cost_price, runner_fee, shooper_promo, markup_price, fee_per_item, image_url, is_available, publish_web, publish_pos) VALUES ($1, $2, $3, $4, $5, $6, $7, 1000, $8, $9, $10, $11)', [merchant_id, name, selling_price || 0, cost_price || 0, runner_fee || 0, shooper_promo || 0, markup_price || 0, finalImg, avail, pubWeb, pubPos]);
     }
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -402,7 +406,7 @@ app.post('/api/merchant/pos-checkout', async (req, res) => {
   } finally { client.release(); }
 });
 
-// ==================== API CATALOG (MERCHANTS ACTIVE) ====================
+// ==================== API CATALOG (MERCHANTS ACTIVE & PUBLISH WEB) ====================
 app.get('/api/merchants/active', async (req, res) => {
   try {
     const query = `
@@ -410,7 +414,7 @@ app.get('/api/merchants/active', async (req, res) => {
              COALESCE(m.is_open, TRUE) AS is_open, COALESCE(m.open_time::text, '07:00:00') AS open_time, COALESCE(m.close_time::text, '17:00:00') AS close_time,
              mn.id AS menu_id, mn.name AS menu_name, mn.price AS original_price, COALESCE(mn.is_available, TRUE) AS is_available, mn.image_url
       FROM merchants m LEFT JOIN menus mn ON m.id = mn.merchant_id
-      WHERE m.is_active = TRUE AND (mn.is_available = TRUE OR mn.is_available IS NULL) ORDER BY m.id, mn.id
+      WHERE m.is_active = TRUE AND mn.publish_web = TRUE AND mn.is_available = TRUE ORDER BY m.id, mn.id
     `;
     const result = await pool.query(query);
     const merchants = {};
@@ -461,116 +465,4 @@ app.post('/api/orders', async (req, res) => {
   } finally { client.release(); }
 });
 
-app.get('/api/shooper/my-orders', async (req, res) => {
-  try {
-    const { phone } = req.query;
-    if (!phone) return res.status(400).json({ error: 'Nomor WA wajib diisi' });
-
-    let formattedPhone = phone.trim();
-    if (formattedPhone.startsWith('0')) formattedPhone = '62' + formattedPhone.substring(1);
-
-    const query = `
-      SELECT o.id AS order_id, o.status, o.total_price, o.created_at,
-             STRING_AGG(CONCAT(oi.quantity, 'x ', mn.name), ', ') AS items_summary
-      FROM orders o
-      JOIN users u ON o.shooper_id = u.id
-      LEFT JOIN order_items oi ON oi.order_id = o.id
-      LEFT JOIN menus mn ON oi.menu_id = mn.id
-      WHERE u.phone_number = $1
-      GROUP BY o.id, o.status, o.total_price, o.created_at
-      ORDER BY o.id DESC LIMIT 10
-    `;
-    const result = await pool.query(query, [formattedPhone]);
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==================== THERMAL PDF RECEIPT ====================
-app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const orderRes = await pool.query(`
-      SELECT o.id, o.total_price, o.payment_method, o.created_at,
-             u.name AS shooper_name, u.department_location,
-             m.name AS merchant_name, m.phone_number AS merchant_phone
-      FROM orders o
-      JOIN users u ON o.shooper_id = u.id
-      JOIN order_items oi ON oi.order_id = o.id
-      JOIN menus mn ON oi.menu_id = mn.id
-      JOIN merchants m ON mn.merchant_id = m.id
-      WHERE o.id = $1 LIMIT 1
-    `, [orderId]);
-
-    if (orderRes.rows.length === 0) return res.status(404).send('Struk tidak ditemukan');
-    const order = orderRes.rows[0];
-
-    const itemsRes = await pool.query(`
-      SELECT oi.quantity, oi.price_per_item, mn.name AS menu_name
-      FROM order_items oi
-      JOIN menus mn ON oi.menu_id = mn.id
-      WHERE oi.order_id = $1
-    `, [orderId]);
-
-    const logoRes = await pool.query("SELECT value FROM settings WHERE key = 'store_logo'");
-    let logoPath = logoRes.rows.length > 0 && logoRes.rows[0].value ? path.join(__dirname, 'public', logoRes.rows[0].value) : path.join(__dirname, 'public', 'images', 'logo_dummy.png');
-
-    const itemCount = itemsRes.rows.length;
-    const dynamicHeight = 195 + (itemCount * 22);
-    const canvasWidth = 226;
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=Struk-Thermal-#${order.id}.pdf`);
-
-    const doc = new PDFDocument({ size: [canvasWidth, dynamicHeight], margin: 10 });
-    doc.pipe(res);
-
-    if (fs.existsSync(logoPath)) {
-      try {
-        doc.image(logoPath, (canvasWidth - 80) / 2, 5, { width: 80, align: 'center' });
-        doc.moveDown(2.2);
-      } catch (e) {
-        doc.moveDown(0.5);
-      }
-    }
-
-    doc.fontSize(10).font('Helvetica-Bold').text(order.merchant_name || 'STRUK PEMBAYARAN', 10, doc.y, { width: 206, align: 'center' });
-    doc.fontSize(7).font('Helvetica').text(`Telp/WA: ${order.merchant_phone || '-'}`, 10, doc.y, { width: 206, align: 'center' });
-    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
-
-    doc.fontSize(7).font('Helvetica-Bold').text(`No. Struk : #${order.id}`, 10, doc.y, { width: 206, align: 'left' });
-    doc.font('Helvetica').text(`Tgl       : ${new Date(order.created_at).toLocaleString('id-ID')}`, 10, doc.y, { width: 206, align: 'left' });
-    doc.text(`Pelanggan : ${order.shooper_name}`, 10, doc.y, { width: 206, align: 'left' });
-    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
-
-    itemsRes.rows.forEach(item => {
-      const subtotal = item.quantity * parseFloat(item.price_per_item);
-      const itemText = `${item.quantity}x ${item.menu_name}`;
-      const priceText = `Rp ${subtotal.toLocaleString('id-ID')}`;
-
-      const currentY = doc.y;
-      doc.font('Helvetica').fontSize(8).text(itemText, 10, currentY, { width: 135, align: 'left' });
-      doc.text(priceText, 145, currentY, { width: 70, align: 'right' });
-      doc.moveDown(0.4);
-    });
-
-    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
-    
-    doc.font('Helvetica-Bold').fontSize(9).text(`TOTAL : Rp ${parseFloat(order.total_price).toLocaleString('id-ID')}`, 10, doc.y, { width: 206, align: 'center' });
-    doc.font('Helvetica').fontSize(7).text(`Pembayaran: ${order.payment_method || 'COD'} (LUNAS)`, 10, doc.y, { width: 206, align: 'center' });
-    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
-    
-    doc.fontSize(7).font('Helvetica').text('Terima kasih telah berkunjung!', 10, doc.y, { width: 206, align: 'center' });
-    doc.font('Helvetica-Bold').text('Pesan Online / E-Menu:', 10, doc.y, { width: 206, align: 'center' });
-    doc.fillColor('blue').text('https://titip.shoopy.my.id', 10, doc.y, { width: 206, align: 'center', link: 'https://titip.shoopy.my.id' });
-
-    doc.end();
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.listen(port, () => {
-  console.log(`Titip Shoopy running on port ${port}`);
-});
+app.listen(port, () => { console.log(`Titip Shoopy running on port ${port}`); });

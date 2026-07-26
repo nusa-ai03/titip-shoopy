@@ -15,10 +15,10 @@
             <div class="text-center space-y-1">
                 <div class="w-12 h-12 bg-emerald-600 text-white rounded-2xl mx-auto flex items-center justify-center font-black text-xl shadow">O</div>
                 <h1 class="text-2xl font-black text-emerald-600">POS & Manajemen Toko</h1>
-                <p class="text-xs opacity-70">Masukan WhatsApp Warung & PIN Kasir</p>
+                <p class="text-xs opacity-70">Gunakan No WA Warung & PIN (Default: 123456)</p>
             </div>
             <div class="form-control space-y-3">
-                <div><label class="label text-xs font-bold">Nomor WA Warung</label><input type="tel" id="m-login-phone" placeholder="Contoh: 081234567890" class="input input-bordered w-full text-sm"></div>
+                <div><label class="label text-xs font-bold">Nomor WA Warung</label><input type="tel" id="m-login-phone" placeholder="081234567890" class="input input-bordered w-full text-sm"></div>
                 <div><label class="label text-xs font-bold">PIN Kasir (Default: 123456)</label><input type="password" id="m-login-pin" placeholder="••••••" class="input input-bordered w-full text-sm"></div>
                 <button onclick="loginMerchant()" class="btn btn-success text-white w-full shadow-lg font-bold">Masuk POS & Toko</button>
             </div>
@@ -48,11 +48,11 @@
                 <div class="flex gap-2 justify-between items-center bg-base-100 p-3 rounded-2xl shadow-sm border">
                     <div class="relative w-full sm:w-72">
                         <span class="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
-                        <input type="text" id="pos-search" onkeyup="renderPosMenus()" placeholder="Cari menu..." class="input input-bordered input-sm w-full pl-8 text-xs">
+                        <input type="text" id="pos-search" onkeyup="renderPosMenus()" placeholder="Cari menu POS..." class="input input-bordered input-sm w-full pl-8 text-xs">
                     </div>
                 </div>
                 <div>
-                    <h3 class="font-black text-xs text-emerald-800 uppercase tracking-wider mb-2">Grid Produk POS (Klik untuk Masuk Billing)</h3>
+                    <h3 class="font-black text-xs text-emerald-800 uppercase tracking-wider mb-2">Grid Produk POS (Publish POS & Available)</h3>
                     <div id="pos-menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"><p class="text-xs opacity-70 col-span-full text-center py-12">Memuat...</p></div>
                 </div>
             </div>
@@ -83,7 +83,7 @@
         </div>
     </div>
 
-    <!-- MODAL DATA TOKO (DISAMAKAN DENGAN HALAMAN RUNNER) -->
+    <!-- MODAL DATA TOKO -->
     <div id="store-modal" class="modal">
         <div class="modal-box max-w-md space-y-3">
             <h3 class="font-bold text-sm text-emerald-700">⚙️ Pengaturan Data Toko / Merchant</h3>
@@ -91,10 +91,10 @@
                 <label class="font-bold">Nama Warung</label><input type="text" id="store-name" class="input input-bordered input-sm w-full">
                 <label class="font-bold">No WA Warung</label><input type="tel" id="store-phone" class="input input-bordered input-sm w-full">
                 <label class="font-bold">Alamat Lengkap</label><input type="text" id="store-address" class="input input-bordered input-sm w-full">
-                <label class="font-bold">Zonasi Lokasi (Dari Master Location)</label>
+                <label class="font-bold">Zonasi Lokasi (Master Location)</label>
                 <select id="store-location-select" class="select select-bordered select-sm w-full"><option value="">Pilih Lokasi</option></select>
                 <label class="font-bold">Nama Pemilik</label><input type="text" id="store-owner" class="input input-bordered input-sm w-full">
-                <label class="font-bold">Titik Map / Link Google Maps</label><input type="text" id="store-map" placeholder="https://maps.google.com/..." class="input input-bordered input-sm w-full">
+                <label class="font-bold">Titik Map / Link Google Maps</label><input type="text" id="store-map" class="input input-bordered input-sm w-full">
                 <div class="grid grid-cols-2 gap-2">
                     <div><label class="font-bold">Jam Buka</label><input type="time" id="store-open" class="input input-bordered input-sm w-full"></div>
                     <div><label class="font-bold">Jam Tutup</label><input type="time" id="store-close" class="input input-bordered input-sm w-full"></div>
@@ -102,36 +102,44 @@
             </div>
             <div class="modal-action flex gap-2">
                 <button onclick="closeStoreSettings()" class="btn btn-sm btn-ghost flex-1">Batal</button>
-                <button onclick="submitStoreSettings()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan Data Toko</button>
+                <button onclick="submitStoreSettings()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL MASTER PRODUK -->
+    <!-- MODAL MASTER PRODUK (DENGAN PUBLISH WEB, POS, AVAILABLE, SOLD) -->
     <div id="product-modal" class="modal">
         <div class="modal-box max-w-lg space-y-3">
-            <h3 class="font-bold text-sm text-emerald-700">🍔 Master Produk & Menu Toko</h3>
+            <h3 class="font-bold text-sm text-emerald-700">🍔 Master Produk & Status Publikasi</h3>
             <div class="flex justify-between items-center border-b pb-2">
-                <span class="text-xs font-bold opacity-70">Daftar Menu Anda</span>
-                <button onclick="openAddMenuForm()" class="btn btn-xs btn-success text-white font-bold">+ Tambah Menu Baru</button>
+                <span class="text-xs font-bold opacity-70">Kelola Produk Anda</span>
+                <button onclick="openAddMenuForm()" class="btn btn-xs btn-success text-white font-bold">+ Tambah Menu</button>
             </div>
-            <div id="merchant-product-list" class="space-y-2 max-h-48 overflow-y-auto divide-y text-xs"></div>
+            <div id="merchant-product-list" class="space-y-2 max-h-56 overflow-y-auto divide-y text-xs"></div>
 
             <div id="merchant-menu-form" class="border-t pt-3 space-y-2 text-xs hidden bg-base-200 p-3 rounded-xl">
-                <h4 class="font-bold text-emerald-800" id="form-menu-title">Tambah Menu Baru</h4>
+                <h4 class="font-bold text-emerald-800" id="form-menu-title">Form Menu</h4>
                 <input type="hidden" id="fm-id">
                 <input type="text" id="fm-name" placeholder="Nama Menu" class="input input-bordered input-sm w-full">
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="fm-cost" placeholder="Harga Modal (Rp)" class="input input-bordered input-sm w-full">
-                    <input type="number" id="fm-sell" placeholder="Harga Jual (Rp)" class="input input-bordered input-sm w-full">
+                    <input type="number" id="fm-cost" placeholder="Modal (Rp)" class="input input-bordered input-sm w-full">
+                    <input type="number" id="fm-sell" placeholder="Jual (Rp)" class="input input-bordered input-sm w-full">
                 </div>
                 <div class="grid grid-cols-3 gap-2">
-                    <input type="number" id="fm-runner" placeholder="Pot. Runner" class="input input-bordered input-sm w-full">
-                    <input type="number" id="fm-promo" placeholder="Promo Shooper" class="input input-bordered input-sm w-full">
-                    <input type="number" id="fm-markup" placeholder="Mark Up" class="input input-bordered input-sm w-full">
+                    <input type="number" id="fm-runner" placeholder="Runner" class="input input-bordered input-sm w-full">
+                    <input type="number" id="fm-promo" placeholder="Promo" class="input input-bordered input-sm w-full">
+                    <input type="number" id="fm-markup" placeholder="Markup" class="input input-bordered input-sm w-full">
                 </div>
-                <div class="space-y-1"><label class="font-bold">Upload Foto Menu (PNG/JPG)</label><input type="file" id="fm-file" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full"></div>
-                <div class="flex items-center gap-2 pt-1"><input type="checkbox" id="fm-avail" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Menu Tersedia (Available)</span></div>
+                <div class="space-y-1"><label class="font-bold">Foto Menu</label><input type="file" id="fm-file" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full"></div>
+                
+                <!-- Status Checkboxes -->
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t">
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-pubweb" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Publish Web</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-pubpos" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Publish POS</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-avail" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Available</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-sold" class="checkbox checkbox-xs checkbox-error"><span class="font-bold text-error">Sold Out (Habis)</span></label>
+                </div>
+
                 <div class="flex gap-2 pt-2">
                     <button onclick="cancelMenuForm()" class="btn btn-xs btn-ghost flex-1">Batal</button>
                     <button onclick="submitMerchantMenu()" class="btn btn-xs btn-success text-white font-bold flex-1">Simpan Menu</button>
@@ -173,14 +181,14 @@
                 const res = await fetch('/api/locations');
                 globalLocations = await res.json();
                 const sel = document.getElementById('store-location-select');
-                sel.innerHTML = '<option value="">Pilih Lokasi Zonasi</option>';
+                sel.innerHTML = '<option value="">Pilih Lokasi</option>';
                 globalLocations.forEach(l => { sel.innerHTML += `<option value="${l.name}">${l.name}</option>`; });
             } catch(e) {}
         }
 
         async function loginMerchant() {
             const phone = document.getElementById('m-login-phone').value.trim();
-            const pin = document.getElementById('m-login-pin').value.trim();
+            const pin = document.getElementById('m-login-pin').value.trim() || '123456';
             if (!phone) return alert('Masukkan WA!');
             const res = await fetch('/api/auth/login-merchant', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone, pin}) });
             const data = await res.json();
@@ -201,9 +209,10 @@
         function renderPosMenus() {
             const grid = document.getElementById('pos-menu-grid');
             const kw = document.getElementById('pos-search').value.toLowerCase().trim();
-            let filtered = globalMenus.filter(m => m.is_available);
+            // Filter menu: harus publish_pos = true, is_available = true, dan sold = false
+            let filtered = globalMenus.filter(m => m.publish_pos !== false && m.is_available !== false);
             if (kw) filtered = filtered.filter(m => m.name.toLowerCase().includes(kw));
-            if (filtered.length === 0) { grid.innerHTML = '<p class="text-xs opacity-70 col-span-full text-center py-10">Tidak ada menu.</p>'; return; }
+            if (filtered.length === 0) { grid.innerHTML = '<p class="text-xs opacity-70 col-span-full text-center py-10">Tidak ada menu aktif POS.</p>'; return; }
             grid.innerHTML = '';
             filtered.forEach(m => {
                 grid.innerHTML += `<div onclick="addToCart(${m.id}, '${m.name}', ${m.price})" class="card bg-base-100 border shadow-sm rounded-2xl overflow-hidden cursor-pointer hover:border-emerald-500"><div class="relative h-20 bg-base-200"><img src="${m.image_url}" class="w-full h-full object-cover"></div><div class="p-2 space-y-0.5"><h4 class="font-bold text-xs line-clamp-1">${m.name}</h4><p class="font-black text-xs text-emerald-700">Rp ${parseFloat(m.price).toLocaleString('id-ID')}</p></div></div>`;
@@ -293,7 +302,10 @@
             list.innerHTML = '';
             if (globalMenus.length === 0) { list.innerHTML = '<p class="text-xs opacity-60 text-center py-4">Belum ada menu.</p>'; return; }
             globalMenus.forEach(m => {
-                list.innerHTML += `<div class="flex justify-between items-center py-2"><div class="flex items-center gap-2"><img src="${m.image_url}" class="w-10 h-10 object-cover rounded"><div><p class="font-bold">${m.name}</p><p class="opacity-70">Rp ${parseFloat(m.price).toLocaleString('id-ID')} | ${m.is_available ? '✅' : '❌'}</p></div></div><button onclick='editMerchantMenu(${JSON.stringify(m)})' class="btn btn-xs btn-outline btn-success">Edit</button></div>`;
+                let statusBadge = m.is_available ? '✅ Available' : '❌ Sold Out';
+                if (m.publish_web) statusBadge += ' | 🌐 Web';
+                if (m.publish_pos) statusBadge += ' | 💻 POS';
+                list.innerHTML += `<div class="flex justify-between items-center py-2"><div class="flex items-center gap-2"><img src="${m.image_url}" class="w-10 h-10 object-cover rounded"><div><p class="font-bold">${m.name}</p><p class="opacity-70">Rp ${parseFloat(m.price).toLocaleString('id-ID')} | ${statusBadge}</p></div></div><button onclick='editMerchantMenu(${JSON.stringify(m)})' class="btn btn-xs btn-outline btn-success">Edit</button></div>`;
             });
         }
 
@@ -302,15 +314,24 @@
             document.getElementById('fm-id').value = ''; document.getElementById('fm-name').value = '';
             document.getElementById('fm-cost').value = ''; document.getElementById('fm-sell').value = '';
             document.getElementById('fm-runner').value = ''; document.getElementById('fm-promo').value = '';
-            document.getElementById('fm-markup').value = ''; document.getElementById('fm-avail').checked = true;
+            document.getElementById('fm-markup').value = ''; 
+            document.getElementById('fm-pubweb').checked = true;
+            document.getElementById('fm-pubpos').checked = true;
+            document.getElementById('fm-avail').checked = true;
+            document.getElementById('fm-sold').checked = false;
             document.getElementById('merchant-menu-form').classList.remove('hidden');
         }
+
         function editMerchantMenu(m) {
             document.getElementById('form-menu-title').innerText = `Edit: ${m.name}`;
             document.getElementById('fm-id').value = m.id; document.getElementById('fm-name').value = m.name;
             document.getElementById('fm-cost').value = m.cost_price || 0; document.getElementById('fm-sell').value = m.price || 0;
             document.getElementById('fm-runner').value = m.runner_fee || 0; document.getElementById('fm-promo').value = m.shooper_promo || 0;
-            document.getElementById('fm-markup').value = m.markup_price || 0; document.getElementById('fm-avail').checked = m.is_available;
+            document.getElementById('fm-markup').value = m.markup_price || 0;
+            document.getElementById('fm-pubweb').checked = m.publish_web !== false;
+            document.getElementById('fm-pubpos').checked = m.publish_pos !== false;
+            document.getElementById('fm-avail').checked = m.is_available === true;
+            document.getElementById('fm-sold').checked = m.is_available === false;
             document.getElementById('merchant-menu-form').classList.remove('hidden');
         }
         function cancelMenuForm() { document.getElementById('merchant-menu-form').classList.add('hidden'); }
@@ -323,27 +344,31 @@
             const runner_fee = document.getElementById('fm-runner').value;
             const shooper_promo = document.getElementById('fm-promo').value;
             const markup_price = document.getElementById('fm-markup').value;
-            const is_available = document.getElementById('fm-avail').checked;
+            
+            const publish_web = document.getElementById('fm-pubweb').checked;
+            const publish_pos = document.getElementById('fm-pubpos').checked;
+            const is_available = document.getElementById('fm-avail').checked && !document.getElementById('fm-sold').checked;
+
             const fileInput = document.getElementById('fm-file');
 
             if (fileInput.files.length > 0) {
                 const reader = new FileReader();
-                reader.onload = async function(e) { sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, e.target.result); };
+                reader.onload = async function(e) { sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, e.target.result); };
                 reader.readAsDataURL(fileInput.files[0]);
             } else {
                 const ex = globalMenus.find(m => m.id == id);
-                sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, ex ? ex.image_url : '');
+                sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, ex ? ex.image_url : '');
             }
         }
 
-        async function sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, image_url) {
-            const payload = { id: id ? id : null, merchant_id: currentMerchant.id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available };
+        async function sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, image_url) {
+            const payload = { id: id ? id : null, merchant_id: currentMerchant.id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos };
             const res = await fetch('/api/admin/menus', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             if ((await res.json()).success) { alert('Tersimpan!'); cancelMenuForm(); loadMerchantDashboard(); openProductMaster(); }
         }
 
         function openWaModal(id, phone) { activeWaOrderId = id; document.getElementById('modal-wa-input').value = phone || ''; document.getElementById('wa-modal').classList.add('modal-open'); }
-        function closeWaModal() { document.getElementById('wa-modal').classList.remove('modal-open'); }
+        function closeWaModal() { document.getElementById('modal-wa-input').value = ''; document.getElementById('wa-modal').classList.remove('modal-open'); }
         function submitSendWa() {
             const p = document.getElementById('modal-wa-input').value.trim();
             if (!p) return alert('No WA wajib!');

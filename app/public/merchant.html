@@ -15,10 +15,10 @@
             <div class="text-center space-y-1">
                 <div class="w-12 h-12 bg-emerald-600 text-white rounded-2xl mx-auto flex items-center justify-center font-black text-xl shadow">O</div>
                 <h1 class="text-2xl font-black text-emerald-600">POS & Manajemen Toko</h1>
-                <p class="text-xs opacity-70">Gunakan No WA Warung & PIN (Default: 123456)</p>
+                <p class="text-xs opacity-70">Gunakan No WA Warung / 'yasir' & PIN (Default: 123456)</p>
             </div>
             <div class="form-control space-y-3">
-                <div><label class="label text-xs font-bold">Nomor WA Warung</label><input type="tel" id="m-login-phone" placeholder="081234567890" class="input input-bordered w-full text-sm"></div>
+                <div><label class="label text-xs font-bold">Nomor WA Warung / 'yasir'</label><input type="text" id="m-login-phone" placeholder="081234567890 / yasir" class="input input-bordered w-full text-sm"></div>
                 <div><label class="label text-xs font-bold">PIN Kasir (Default: 123456)</label><input type="password" id="m-login-pin" placeholder="••••••" class="input input-bordered w-full text-sm"></div>
                 <button onclick="loginMerchant()" class="btn btn-success text-white w-full shadow-lg font-bold">Masuk POS & Toko</button>
             </div>
@@ -52,49 +52,101 @@
                     </div>
                 </div>
                 <div>
-                    <h3 class="font-black text-xs text-emerald-800 uppercase tracking-wider mb-2">Grid Produk POS (Publish POS & Available)</h3>
+                    <h3 class="font-black text-xs text-emerald-800 uppercase tracking-wider mb-2">Grid Produk POS</h3>
                     <div id="pos-menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"><p class="text-xs opacity-70 col-span-full text-center py-12">Memuat...</p></div>
                 </div>
             </div>
 
             <div class="w-full sm:w-[440px] bg-base-100 border-l flex flex-col shadow-xl z-20">
                 <div class="tabs tabs-boxed bg-base-200 p-1.5 font-bold text-xs m-2">
-                    <a role="tab" onclick="switchPosTab('billing')" id="tab-billing" class="tab tab-active flex-1">🛒 Billing Kasir</a>
-                    <a role="tab" onclick="switchPosTab('orders')" id="tab-orders" class="tab flex-1">📦 Riwayat Pesanan</a>
+                    <a role="tab" onclick="switchPosTab('billing')" id="tab-billing" class="tab tab-active flex-1">🛒 Billing POS</a>
+                    <a role="tab" onclick="switchPosTab('orders')" id="tab-orders" class="tab flex-1">📦 Riwayat POS</a>
+                    <a role="tab" onclick="switchPosTab('report')" id="tab-report" class="tab flex-1">📊 Laporan</a>
                 </div>
 
+                <!-- 1. BILLING POS -->
                 <div id="sec-billing" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3">
-                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Keranjang</span><button onclick="clearCart()" class="text-error text-[11px] link">Kosongkan</button></div>
+                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Keranjang Billing</span><button onclick="clearCart()" class="text-error text-[11px] link">Kosongkan</button></div>
                     <div id="cart-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 divide-y"><p class="text-xs opacity-60 text-center py-10">Keranjang kosong.</p></div>
                     <div class="pt-2 border-t space-y-2">
                         <div class="flex justify-between text-sm font-black"><span>Total:</span><span id="cart-grand-total" class="text-emerald-700">Rp 0</span></div>
                         <div class="grid grid-cols-2 gap-2">
-                            <button onclick="checkoutPOS('CASH')" class="btn btn-success text-white font-bold text-xs shadow">💵 CASH</button>
-                            <button onclick="checkoutPOS('QRIS')" class="btn btn-primary text-white font-bold text-xs shadow">📱 QRIS</button>
+                            <button onclick="openCashModal()" class="btn btn-success text-white font-bold text-xs shadow">💵 Bayar CASH</button>
+                            <button onclick="checkoutPOS('QRIS')" class="btn btn-primary text-white font-bold text-xs shadow">📱 Bayar QRIS</button>
                         </div>
                     </div>
                 </div>
 
+                <!-- 2. RIWAYAT POS WALK IN SAJA -->
                 <div id="sec-orders" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
-                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Riwayat</span><span id="order-count-badge" class="badge badge-success badge-xs text-white">0</span></div>
-                    <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada pesanan.</p></div>
+                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Riwayat POS Walk-In</span><span id="order-count-badge" class="badge badge-success badge-xs text-white">0</span></div>
+                    <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi kasir.</p></div>
+                </div>
+
+                <!-- 3. LAPORAN TRANSAKSI KHUSUS MERCHANT -->
+                <div id="sec-report" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
+                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Laporan Penjualan Warung</span><button onclick="loadMerchantReport()" class="btn btn-xs btn-outline btn-success">Refresh</button></div>
+                    <div id="merchant-report-list" class="flex-1 overflow-y-auto space-y-2 divide-y text-xs"><p class="text-xs opacity-70 text-center py-10">Memuat laporan...</p></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DATA TOKO -->
+    <!-- MODAL PEMBAYARAN CASH -->
+    <div id="cash-modal" class="modal">
+        <div class="modal-box max-w-sm space-y-3 text-xs">
+            <h3 class="font-bold text-sm text-emerald-700">💵 Pembayaran Tunai (CASH)</h3>
+            <div class="flex justify-between font-bold text-sm"><span>Total Tagihan:</span><span id="cash-modal-total" class="text-emerald-700">Rp 0</span></div>
+            <div class="form-control space-y-1">
+                <label class="font-bold">Uang Diterima</label>
+                <input type="number" id="cash-given-input" onkeyup="calculateChange()" placeholder="Contoh: 50000" class="input input-bordered input-sm w-full text-sm font-bold">
+            </div>
+            <div class="space-y-1">
+                <label class="font-bold opacity-70">Pecahan Bayar Cepat:</label>
+                <div class="grid grid-cols-3 gap-1.5" id="quick-cash-buttons"></div>
+            </div>
+            <div class="p-3 bg-base-200 rounded-xl space-y-1">
+                <div class="flex justify-between font-bold text-sm"><span>Kembalian:</span><span id="cash-change-display" class="text-success">Rp 0</span></div>
+            </div>
+            <div class="modal-action flex gap-2">
+                <button onclick="closeCashModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
+                <button onclick="submitCashCheckout()" id="btn-confirm-cash" class="btn btn-sm btn-success text-white font-bold flex-1" disabled>Proses & Cetak Struk</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT / VOID -->
+    <div id="edit-order-modal" class="modal">
+        <div class="modal-box max-w-xs space-y-3 text-xs">
+            <h3 class="font-bold text-sm text-emerald-700" id="eo-title">Edit / Void Transaksi</h3>
+            <input type="hidden" id="eo-order-id">
+            <div class="form-control space-y-1">
+                <label class="font-bold">Ubah Status Pesanan</label>
+                <select id="eo-status-select" class="select select-bordered select-sm w-full text-xs">
+                    <option value="completed">Completed (Selesai/Paid)</option>
+                    <option value="void">Void (Dibatalkan)</option>
+                    <option value="preparing">Preparing (Diproses)</option>
+                </select>
+            </div>
+            <div class="modal-action flex gap-2">
+                <button onclick="closeEditOrderModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
+                <button onclick="submitUpdateAndLoadToBilling()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan & Load POS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL TOKO -->
     <div id="store-modal" class="modal">
         <div class="modal-box max-w-md space-y-3">
-            <h3 class="font-bold text-sm text-emerald-700">⚙️ Pengaturan Data Toko / Merchant</h3>
+            <h3 class="font-bold text-sm text-emerald-700">⚙️ Pengaturan Data Toko</h3>
             <div class="form-control space-y-2 text-xs">
                 <label class="font-bold">Nama Warung</label><input type="text" id="store-name" class="input input-bordered input-sm w-full">
                 <label class="font-bold">No WA Warung</label><input type="tel" id="store-phone" class="input input-bordered input-sm w-full">
                 <label class="font-bold">Alamat Lengkap</label><input type="text" id="store-address" class="input input-bordered input-sm w-full">
-                <label class="font-bold">Zonasi Lokasi (Master Location)</label>
+                <label class="font-bold">Zonasi Lokasi</label>
                 <select id="store-location-select" class="select select-bordered select-sm w-full"><option value="">Pilih Lokasi</option></select>
                 <label class="font-bold">Nama Pemilik</label><input type="text" id="store-owner" class="input input-bordered input-sm w-full">
-                <label class="font-bold">Titik Map / Link Google Maps</label><input type="text" id="store-map" class="input input-bordered input-sm w-full">
+                <label class="font-bold">Link Google Maps</label><input type="text" id="store-map" class="input input-bordered input-sm w-full">
                 <div class="grid grid-cols-2 gap-2">
                     <div><label class="font-bold">Jam Buka</label><input type="time" id="store-open" class="input input-bordered input-sm w-full"></div>
                     <div><label class="font-bold">Jam Tutup</label><input type="time" id="store-close" class="input input-bordered input-sm w-full"></div>
@@ -107,12 +159,11 @@
         </div>
     </div>
 
-    <!-- MODAL MASTER PRODUK (DENGAN PUBLISH WEB, POS, AVAILABLE, SOLD) -->
     <div id="product-modal" class="modal">
         <div class="modal-box max-w-lg space-y-3">
-            <h3 class="font-bold text-sm text-emerald-700">🍔 Master Produk & Status Publikasi</h3>
+            <h3 class="font-bold text-sm text-emerald-700">🍔 Master Produk & Status</h3>
             <div class="flex justify-between items-center border-b pb-2">
-                <span class="text-xs font-bold opacity-70">Kelola Produk Anda</span>
+                <span class="text-xs font-bold opacity-70">Kelola Produk</span>
                 <button onclick="openAddMenuForm()" class="btn btn-xs btn-success text-white font-bold">+ Tambah Menu</button>
             </div>
             <div id="merchant-product-list" class="space-y-2 max-h-56 overflow-y-auto divide-y text-xs"></div>
@@ -132,12 +183,11 @@
                 </div>
                 <div class="space-y-1"><label class="font-bold">Foto Menu</label><input type="file" id="fm-file" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full"></div>
                 
-                <!-- Status Checkboxes -->
                 <div class="grid grid-cols-2 gap-2 pt-1 border-t">
                     <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-pubweb" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Publish Web</span></label>
                     <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-pubpos" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Publish POS</span></label>
                     <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-avail" class="checkbox checkbox-xs checkbox-success" checked><span class="font-bold">Available</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-sold" class="checkbox checkbox-xs checkbox-error"><span class="font-bold text-error">Sold Out (Habis)</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fm-sold" class="checkbox checkbox-xs checkbox-error"><span class="font-bold text-error">Sold Out</span></label>
                 </div>
 
                 <div class="flex gap-2 pt-2">
@@ -149,20 +199,25 @@
         </div>
     </div>
 
-    <!-- MODAL WA -->
     <div id="wa-modal" class="modal">
-        <div class="modal-box max-w-xs space-y-3">
+        <div class="modal-box max-w-xs space-y-3 text-xs">
             <h3 class="font-bold text-sm text-emerald-700">📱 Kirim E-Receipt via WA</h3>
-            <input type="tel" id="modal-wa-input" placeholder="0812..." class="input input-bordered input-sm w-full text-xs">
-            <div class="modal-action flex justify-end gap-2">
-                <button onclick="closeWaModal()" class="btn btn-xs btn-ghost">Batal</button>
-                <button onclick="submitSendWa()" class="btn btn-xs btn-success text-white font-bold">Kirim</button>
+            <input type="hidden" id="modal-order-id-hidden">
+            <input type="hidden" id="modal-order-summary-hidden">
+            <input type="hidden" id="modal-order-total-hidden">
+            <div class="form-control space-y-1">
+                <label class="font-bold">Nomor WhatsApp Pembeli</label>
+                <input type="tel" id="modal-wa-input" placeholder="0812..." class="input input-bordered input-sm w-full text-xs">
+            </div>
+            <div class="modal-action flex gap-2">
+                <button onclick="closeWaModal()" class="btn btn-xs btn-ghost flex-1">Batal</button>
+                <button onclick="submitSendWa()" class="btn btn-xs btn-success text-white font-bold flex-1">Kirim</button>
             </div>
         </div>
     </div>
 
     <script>
-        let currentMerchant = null, globalMenus = [], cart = [], activeWaOrderId = null, globalLocations = [];
+        let currentMerchant = null, globalMenus = [], cart = [], globalLocations = [], globalSettings = {};
 
         document.addEventListener('DOMContentLoaded', () => {
             const saved = localStorage.getItem('merchant_user');
@@ -172,9 +227,38 @@
                 document.getElementById('merchant-main-content').classList.remove('hidden');
                 document.getElementById('m-display-name').innerText = currentMerchant.name;
                 loadLocations();
+                loadSettings();
                 loadMerchantDashboard();
             }
         });
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                globalSettings = await res.json();
+                renderQuickCashButtons();
+            } catch(e) {}
+        }
+
+        function renderQuickCashButtons() {
+            const container = document.getElementById('quick-cash-buttons');
+            if(!container) return;
+            container.innerHTML = '';
+            const total = getCartGrandTotal();
+            container.innerHTML += `<button onclick="setCashGiven(${total})" class="btn btn-xs btn-outline btn-success font-bold">Uang Pas</button>`;
+            const denomsStr = globalSettings.cash_denoms || '10000, 20000, 50000, 100000';
+            const denoms = denomsStr.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d));
+            denoms.forEach(d => {
+                if (d >= total) {
+                    container.innerHTML += `<button onclick="setCashGiven(${d})" class="btn btn-xs btn-outline btn-primary font-bold">Rp ${d.toLocaleString('id-ID')}</button>`;
+                }
+            });
+        }
+
+        function setCashGiven(amount) {
+            document.getElementById('cash-given-input').value = amount;
+            calculateChange();
+        }
 
         async function loadLocations() {
             try {
@@ -189,7 +273,7 @@
         async function loginMerchant() {
             const phone = document.getElementById('m-login-phone').value.trim();
             const pin = document.getElementById('m-login-pin').value.trim() || '123456';
-            if (!phone) return alert('Masukkan WA!');
+            if (!phone) return alert('Masukkan WA / yasir!');
             const res = await fetch('/api/auth/login-merchant', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone, pin}) });
             const data = await res.json();
             if (data.success) { localStorage.setItem('merchant_user', JSON.stringify(data.merchant)); location.reload(); } else { alert(data.error); }
@@ -206,10 +290,35 @@
             renderPosOrders(data.orders || []);
         }
 
+        async function loadMerchantReport() {
+            const list = document.getElementById('merchant-report-list');
+            list.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Memuat laporan...</p>';
+            try {
+                const res = await fetch(`/api/merchant/report/${currentMerchant.id}`);
+                const rows = await res.json();
+                list.innerHTML = '';
+                if (rows.length === 0) { list.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Belum ada transaksi.</p>'; return; }
+                rows.forEach(r => {
+                    list.innerHTML += `
+                        <div class="p-2 bg-base-100 border rounded space-y-1">
+                            <div class="flex justify-between font-bold">
+                                <span class="text-emerald-700">Order #${r.order_id} (${r.payment_method})</span>
+                                <span class="badge badge-success badge-xs text-white">${r.status}</span>
+                            </div>
+                            <p class="opacity-80">${r.items_summary}</p>
+                            <div class="flex justify-between font-black pt-1">
+                                <span>Rp ${parseFloat(r.total_price).toLocaleString('id-ID')}</span>
+                                <span class="text-[10px] opacity-60">${new Date(r.created_at).toLocaleString('id-ID')}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) { list.innerHTML = '<p class="text-xs text-error text-center py-6">Gagal memuat laporan.</p>'; }
+        }
+
         function renderPosMenus() {
             const grid = document.getElementById('pos-menu-grid');
             const kw = document.getElementById('pos-search').value.toLowerCase().trim();
-            // Filter menu: harus publish_pos = true, is_available = true, dan sold = false
             let filtered = globalMenus.filter(m => m.publish_pos !== false && m.is_available !== false);
             if (kw) filtered = filtered.filter(m => m.name.toLowerCase().includes(kw));
             if (filtered.length === 0) { grid.innerHTML = '<p class="text-xs opacity-70 col-span-full text-center py-10">Tidak ada menu aktif POS.</p>'; return; }
@@ -243,26 +352,96 @@
             totalEl.innerText = `Rp ${gt.toLocaleString('id-ID')}`;
         }
 
+        function getCartGrandTotal() {
+            let gt = 0; cart.forEach(i => gt += i.price * i.quantity); return gt;
+        }
+
+        function openCashModal() {
+            if (cart.length === 0) return alert('Keranjang kosong!');
+            const total = getCartGrandTotal();
+            document.getElementById('cash-modal-total').innerText = `Rp ${total.toLocaleString('id-ID')}`;
+            document.getElementById('cash-given-input').value = '';
+            document.getElementById('cash-change-display').innerText = 'Rp 0';
+            document.getElementById('btn-confirm-cash').setAttribute('disabled', 'true');
+            renderQuickCashButtons();
+            document.getElementById('cash-modal').classList.add('modal-open');
+        }
+        function closeCashModal() { document.getElementById('cash-modal').classList.remove('modal-open'); }
+
+        function calculateChange() {
+            const total = getCartGrandTotal();
+            const given = parseFloat(document.getElementById('cash-given-input').value) || 0;
+            const change = given - total;
+            const changeDisp = document.getElementById('cash-change-display');
+            const btnConfirm = document.getElementById('btn-confirm-cash');
+
+            if (change >= 0) {
+                changeDisp.innerText = `Rp ${change.toLocaleString('id-ID')}`;
+                changeDisp.className = 'text-success font-black text-sm';
+                btnConfirm.removeAttribute('disabled');
+            } else {
+                changeDisp.innerText = `Kurang Rp ${Math.abs(change).toLocaleString('id-ID')}`;
+                changeDisp.className = 'text-error font-bold text-xs';
+                btnConfirm.setAttribute('disabled', 'true');
+            }
+        }
+
+        async function submitCashCheckout() {
+            await checkoutPOS('CASH');
+            closeCashModal();
+        }
+
         async function checkoutPOS(pm) {
             if (cart.length === 0) return alert('Keranjang kosong!');
             const res = await fetch('/api/merchant/pos-checkout', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ merchant_id: currentMerchant.id, items: cart, payment_method: pm }) });
             const data = await res.json();
-            if (data.success) { alert('Sukses!'); window.open(`/api/orders/receipt-pdf/${data.order_id}`, '_blank'); cart = []; renderCart(); loadMerchantDashboard(); }
+            if (data.success) { alert('Transaksi POS Sukses & Lunas!'); window.open(`/api/orders/receipt-pdf/${data.order_id}`, '_blank'); cart = []; renderCart(); loadMerchantDashboard(); }
         }
 
         function switchPosTab(tab) {
-            ['billing', 'orders'].forEach(t => { document.getElementById(`sec-${t}`).classList.add('hidden'); document.getElementById(`tab-${t}`).classList.remove('tab-active'); });
-            document.getElementById(`sec-${tab}`).classList.remove('hidden'); document.getElementById(`tab-${tab}`).classList.add('tab-active');
+            ['billing', 'orders', 'report'].forEach(t => { 
+                const el = document.getElementById(`sec-${t}`);
+                const tabEl = document.getElementById(`tab-${t}`);
+                if(el) el.classList.add('hidden'); 
+                if(tabEl) tabEl.classList.remove('tab-active'); 
+            });
+            const activeSec = document.getElementById(`sec-${tab}`);
+            const activeTab = document.getElementById(`tab-${tab}`);
+            if(activeSec) activeSec.classList.remove('hidden'); 
+            if(activeTab) activeTab.classList.add('tab-active');
+
+            if (tab === 'report') { loadMerchantReport(); }
         }
 
         function renderPosOrders(orders) {
             const list = document.getElementById('pos-orders-ticket-list');
             document.getElementById('order-count-badge').innerText = orders.length;
-            if (orders.length === 0) { list.innerHTML = '<p class="text-xs opacity-70 text-center py-10">Belum ada pesanan.</p>'; return; }
+            if (orders.length === 0) { list.innerHTML = '<p class="text-xs opacity-70 text-center py-10">Belum ada transaksi kasir POS.</p>'; return; }
             list.innerHTML = '';
             orders.forEach(o => {
-                list.innerHTML += `<div class="pt-2 space-y-1 text-xs"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><span class="badge badge-success badge-xs text-white">${o.status}</span></div><p class="font-bold">${o.shooper_name} (${o.department_location})</p><p class="opacity-80">${o.items_summary}</p><div class="flex justify-between items-center pt-1"><span class="font-black text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span><div class="flex gap-1"><a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 PDF</a><button onclick='openWaModal(${o.order_id}, "${o.phone_number}")' class="btn btn-xs btn-success text-white">WA</button></div></div></div>`;
+                let safeSummary = (o.items_summary || '').replace(/"/g, '&quot;');
+                list.innerHTML += `<div class="pt-2 space-y-1 text-xs"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><div class="flex gap-1 items-center"><span class="badge badge-success badge-xs text-white">${o.status}</span><button onclick='openEditOrderModal(${o.id || o.order_id}, "${o.status}")' class="btn btn-xs btn-outline btn-success py-0 h-5 min-h-0 text-[10px]">Edit/Void</button></div></div><p class="font-bold">${o.shooper_name} (${o.department_location})</p><p class="opacity-80">${o.items_summary}</p><div class="flex justify-between items-center pt-1"><span class="font-black text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span><div class="flex gap-1"><a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 PDF</a><button onclick='openWaModal(${o.order_id}, "${o.phone_number || ''}", "${safeSummary}", ${o.total_price})' class="btn btn-xs btn-success text-white">WA</button></div></div></div>`;
             });
+        }
+
+        function openEditOrderModal(orderId, currentStatus) {
+            document.getElementById('eo-order-id').value = orderId;
+            document.getElementById('eo-title').innerText = `Edit / Void Transaksi #${orderId}`;
+            document.getElementById('eo-status-select').value = currentStatus;
+            document.getElementById('edit-order-modal').classList.add('modal-open');
+        }
+        function closeEditOrderModal() { document.getElementById('edit-order-modal').classList.remove('modal-open'); }
+
+        async function submitUpdateAndLoadToBilling() {
+            const order_id = document.getElementById('eo-order-id').value;
+            const status = document.getElementById('eo-status-select').value;
+            await fetch('/api/merchant/orders/update-status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ order_id, status }) });
+            const res = await fetch(`/api/merchant/order-items/${order_id}`);
+            const items = await res.json();
+            cart = [];
+            items.forEach(it => { cart.push({ menu_id: it.menu_id, name: it.name, price: parseFloat(it.price), quantity: it.quantity }); });
+            renderCart(); switchPosTab('billing'); closeEditOrderModal();
+            alert(`Pesanan #${order_id} diperbarui dan itemnya dimuat ke Billing POS!`);
         }
 
         function openStoreSettings() {
@@ -344,11 +523,9 @@
             const runner_fee = document.getElementById('fm-runner').value;
             const shooper_promo = document.getElementById('fm-promo').value;
             const markup_price = document.getElementById('fm-markup').value;
-            
             const publish_web = document.getElementById('fm-pubweb').checked;
             const publish_pos = document.getElementById('fm-pubpos').checked;
             const is_available = document.getElementById('fm-avail').checked && !document.getElementById('fm-sold').checked;
-
             const fileInput = document.getElementById('fm-file');
 
             if (fileInput.files.length > 0) {
@@ -367,12 +544,30 @@
             if ((await res.json()).success) { alert('Tersimpan!'); cancelMenuForm(); loadMerchantDashboard(); openProductMaster(); }
         }
 
-        function openWaModal(id, phone) { activeWaOrderId = id; document.getElementById('modal-wa-input').value = phone || ''; document.getElementById('wa-modal').classList.add('modal-open'); }
+        function openWaModal(id, phone, summary, total) {
+            document.getElementById('modal-order-id-hidden').value = id;
+            document.getElementById('modal-order-summary-hidden').value = summary;
+            document.getElementById('modal-order-total-hidden').value = total;
+            document.getElementById('modal-wa-input').value = phone === 'undefined' ? '' : phone;
+            document.getElementById('wa-modal').classList.add('modal-open');
+        }
         function closeWaModal() { document.getElementById('modal-wa-input').value = ''; document.getElementById('wa-modal').classList.remove('modal-open'); }
+
         function submitSendWa() {
-            const p = document.getElementById('modal-wa-input').value.trim();
-            if (!p) return alert('No WA wajib!');
-            window.open(`https://wa.me/${p.startsWith('0') ? '62'+p.substring(1):p}?text=${encodeURIComponent('E-Receipt: https://'+window.location.host+'/api/orders/receipt-pdf/'+activeWaOrderId)}`, '_blank');
+            const phone = document.getElementById('modal-wa-input').value.trim();
+            if (!phone) return alert('Nomor WhatsApp wajib diisi!');
+            
+            const orderId = document.getElementById('modal-order-id-hidden').value;
+            const summary = document.getElementById('modal-order-summary-hidden').value;
+            const total = parseFloat(document.getElementById('modal-order-total-hidden').value) || 0;
+            const pdfUrl = `https://${window.location.host}/api/orders/receipt-pdf/${orderId}`;
+            const catalogUrl = `https://${window.location.host}/`;
+
+            let itemsArray = summary.split(',').map(i => `• ${i.trim()}`).join('\n');
+            const text = `Halo, terima kasih telah berbelanja di *${currentMerchant.name}*!\n\n*Ringkasan Pesanan #${orderId}:*\n${itemsArray}\n\n*Total Tagihan:* Rp ${total.toLocaleString('id-ID')}\n\n[🌐 e-Menu](${catalogUrl}) | [📄 e-Struk](${pdfUrl})\n\nTerima kasih atas kunjungan Anda! 🙏✨`;
+
+            let cleanPhone = phone.startsWith('0') ? '62' + phone.substring(1) : phone;
+            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
             closeWaModal();
         }
     </script>

@@ -3,473 +3,463 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Titip Shoopy - Hyperlocal Food Delivery & Jastip</title>
+    <title>Titip Shoopy - Katalog & Titip Belanja</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
 </head>
-<body class="min-h-screen bg-base-200 text-base-content flex flex-col pb-24">
+<body class="min-h-screen bg-base-200 text-base-content flex flex-col justify-between">
 
-    <!-- TOP BAR LOKASI & REWARD -->
-    <header class="bg-emerald-800 text-white p-3 shadow-md sticky top-0 z-50">
-        <div class="max-w-4xl mx-auto flex justify-between items-center text-xs">
-            <div class="flex items-center gap-1.5 font-bold">
-                <span>📍</span>
-                <span id="header-location-label">Kantor Kecamatan - R. Pelayanan</span>
-            </div>
-            <div class="bg-amber-400 text-amber-950 font-black px-2.5 py-1 rounded-full text-[11px] shadow flex items-center gap-1">
-                <span>🎁</span> <span id="header-reward-text">Rp 1.000</span>
+    <!-- NAVBAR -->
+    <header class="navbar bg-base-100 shadow px-4 sticky top-0 z-40 flex justify-between">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold">O</div>
+            <span class="text-sm font-black text-emerald-700">Titip Shoopy</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div id="auth-nav-area" class="flex items-center gap-2">
+                <button onclick="openLoginModal()" class="btn btn-sm btn-success text-white font-bold text-xs" id="nav-auth-btn">👤 Masuk</button>
             </div>
         </div>
     </header>
 
-    <main class="max-w-4xl mx-auto w-full p-4 space-y-4 flex-1">
-        
-        <!-- SEARCH BAR -->
-        <div class="relative">
-            <span class="absolute left-4 top-3.5 text-sm opacity-50">🔍</span>
-            <input type="text" id="main-search" onkeyup="filterMerchantsAndMenus()" placeholder="Mau makan apa hari ini?" class="input input-bordered w-full pl-10 shadow-sm text-xs bg-base-100">
-        </div>
-
-        <!-- USER SESSION STATUS -->
-        <div id="user-session-card" class="card bg-base-100 p-3 shadow-sm border flex flex-row justify-between items-center text-xs">
-            <div class="space-y-0.5">
-                <p class="font-bold opacity-70">Hi Shooper! 🌿</p>
-                <p id="user-welcome-msg" class="font-black text-emerald-800 text-sm">Masuk untuk mulai titip</p>
+    <!-- MAIN CONTENT -->
+    <main class="max-w-6xl mx-auto w-full p-4 flex-1 space-y-6">
+        <div class="flex flex-col sm:flex-row gap-2 justify-between items-center bg-base-100 p-4 rounded-2xl shadow-sm border">
+            <div>
+                <h1 class="text-lg font-black text-emerald-800">Katalog Titip Belanja</h1>
+                <p class="text-xs opacity-70">Pilih warung favoritmu dan titip belanjaan sekarang.</p>
             </div>
-            <div class="flex gap-2">
-                <button onclick="openPesananModal()" class="btn btn-xs btn-outline btn-success font-bold">Pesanan</button>
-                <button id="btn-auth-action" onclick="openLoginModal()" class="btn btn-xs btn-success text-white font-bold">Masuk / Daftar</button>
+            <div class="relative w-full sm:w-72">
+                <span class="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                <input type="text" id="search-input" onkeyup="renderCatalog()" placeholder="Cari makanan/warung..." class="input input-bordered input-sm w-full pl-8 text-xs">
             </div>
         </div>
 
-        <!-- PROMO BANNER -->
-        <div class="card bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 shadow-md rounded-2xl space-y-1">
-            <span class="badge badge-warning badge-xs font-bold text-amber-950">PROMO HARI INI</span>
-            <h2 class="text-sm font-black">Diskon Ongkir Flat Rp 0.000</h2>
-            <p class="text-[11px] opacity-90">Titip makan rame-rame per ruangan makin hemat!</p>
-        </div>
-
-        <!-- KATEGORI KULINER -->
-        <div class="space-y-2">
-            <h3 class="font-black text-xs uppercase tracking-wider text-emerald-800">Kategori Kuliner</h3>
-            <div class="flex gap-2 overflow-x-auto pb-1">
-                <button onclick="filterCategory('all')" class="cat-btn btn btn-xs btn-active btn-success text-white font-bold">Semua</button>
-                <button onclick="filterCategory('Nasi')" class="cat-btn btn btn-xs btn-ghost border bg-base-100">🍚 Nasi</button>
-                <button onclick="filterCategory('Ayam')" class="cat-btn btn btn-xs btn-ghost border bg-base-100">🍗 Ayam & Bebek</button>
-                <button onclick="filterCategory('Mie')" class="cat-btn btn btn-xs btn-ghost border bg-base-100">🍜 Mie & Bakso</button>
-            </div>
-        </div>
-
-        <!-- LIST MERCHANT & MENU GRID -->
-        <div id="merchants-container" class="space-y-6">
-            <p class="text-xs opacity-70 text-center py-12">Memuat resto favorit Anda...</p>
-        </div>
-
+        <div id="catalog-container" class="space-y-8"><p class="text-xs opacity-60 text-center py-12">Memuat katalog...</p></div>
     </main>
 
     <!-- FLOATING CART BAR -->
-    <div id="floating-cart" class="fixed bottom-0 left-0 right-0 bg-base-100 border-t shadow-2xl p-3 z-40 hidden">
-        <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <div>
-                <p class="text-[10px] opacity-70 font-bold">Total Keranjang</p>
-                <p class="text-sm font-black text-emerald-700" id="cart-total-price">Rp 0</p>
+    <div id="cart-floating-bar" class="hidden fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-emerald-800 text-white p-3 rounded-2xl shadow-2xl flex justify-between items-center z-30 cursor-pointer" onclick="openCheckoutModal()">
+        <div class="flex items-center gap-2"><span class="badge badge-warning font-black text-xs" id="cart-badge-count">0</span><span class="text-xs font-bold">Lihat Keranjang Belanja</span></div>
+        <span class="font-black text-sm" id="cart-floating-total">Rp 0</span>
+    </div>
+
+    <!-- MODAL LOGIN / REGISTER SHOOPER -->
+    <div id="login-modal" class="modal">
+        <div class="modal-box max-w-sm space-y-3">
+            <h3 class="font-bold text-sm text-emerald-700 text-center">👤 Masuk / Daftar Shooper</h3>
+            <p class="text-[11px] opacity-70 text-center">Nama wajib diisi dengan HURUF BESAR (boleh spasi).</p>
+            <div class="form-control space-y-2 text-xs">
+                <label class="font-bold">Nomor WhatsApp</label>
+                <input type="tel" id="login-phone" placeholder="Contoh: 081234567890" class="input input-bordered input-sm w-full">
+                <label class="font-bold">Nama Lengkap (HURUF BESAR)</label>
+                <input type="text" id="login-name" placeholder="CONTOH: BUDI SANTOSO" oninput="formatUppercase(this)" class="input input-bordered input-sm w-full uppercase">
             </div>
-            <button onclick="openCheckoutModal()" class="btn btn-success text-white font-bold text-xs shadow-lg">
-                📦 Checkout Pesanan (<span id="cart-item-count">0</span>)
-            </button>
+            <div class="modal-action flex gap-2">
+                <button onclick="closeLoginModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
+                <button onclick="submitShooperLogin()" class="btn btn-sm btn-success text-white font-bold flex-1">Lanjut Masuk</button>
+            </div>
         </div>
     </div>
 
-    <!-- MODAL LOGIN / REGISTER SHOOPER (2 ISIAN) -->
-    <div id="login-modal" class="modal">
-        <div class="modal-box max-w-sm space-y-4">
-            <h3 class="font-black text-lg text-emerald-700 text-center">🌿 Masuk Shooper</h3>
-            <div class="form-control space-y-3 text-xs">
-                <div>
-                    <label class="label font-bold pb-1">Nama</label>
-                    <input type="text" id="login-name-input" placeholder="Nama Anda (Bebas)" class="input input-bordered w-full text-xs">
-                </div>
-                <div>
-                    <label class="label font-bold pb-1">No WA</label>
-                    <input type="tel" id="login-phone-input" placeholder="Contoh: 081234567890" class="input input-bordered w-full text-xs">
-                </div>
-                <button onclick="submitShooperLogin()" class="btn btn-success text-white w-full font-bold text-xs mt-2">Masuk / Daftar</button>
+    <!-- MODAL REWARD -->
+    <div id="reward-modal" class="modal">
+        <div class="modal-box max-w-xs space-y-3 text-xs text-center">
+            <h3 class="font-bold text-sm text-emerald-700">🎁 Saldo Reward Anda</h3>
+            <div class="py-4 bg-emerald-50 rounded-2xl border border-emerald-500/30 space-y-1">
+                <p class="text-xs opacity-70">Total Saldo Reward</p>
+                <h2 class="text-2xl font-black text-emerald-700" id="modal-reward-balance">Rp 0</h2>
             </div>
-            <div class="modal-action">
-                <button onclick="closeLoginModal()" class="btn btn-sm btn-ghost w-full">Batal</button>
+            <div class="modal-action"><button onclick="closeRewardModal()" class="btn btn-sm btn-success text-white font-bold w-full">Tutup</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL CHECKOUT DENGAN PEMILIHAN BATCH WAKTU -->
+    <div id="checkout-modal" class="modal">
+        <div class="modal-box max-w-md space-y-3 text-xs">
+            <h3 class="font-bold text-sm text-emerald-700">🛒 Konfirmasi Pesanan Titipan & Pilih Batch Waktu</h3>
+            <div id="checkout-items-summary" class="space-y-1 max-h-32 overflow-y-auto divide-y"></div>
+            
+            <div class="form-control space-y-2 border-t pt-2">
+                <label class="font-bold">Pilih Jadwal Batch Pengiriman</label>
+                <select id="co-batch" class="select select-bordered select-sm w-full"><option value="">Pilih Batch Waktu</option></select>
+
+                <label class="font-bold">Pilih Alamat / Lokasi Pengiriman (Instansi)</label>
+                <select id="co-location" onchange="recalculateCheckout()" class="select select-bordered select-sm w-full"><option value="">Pilih Lokasi Pengiriman</option></select>
+                
+                <div class="p-3 bg-base-200 rounded-xl space-y-1.5">
+                    <div class="flex justify-between font-bold"><span>Subtotal Belanja:</span><span id="co-subtotal">Rp 0</span></div>
+                    <div class="flex justify-between font-bold"><span>Biaya Kirim (<span id="co-distance-label">1.0</span> KM):</span><span id="co-delivery" class="text-emerald-700">Rp 3.000</span></div>
+                    <div class="flex justify-between font-bold"><span>Biaya Layanan Aplikasi:</span><span id="co-service" class="text-emerald-700">Rp 2.000</span></div>
+                    
+                    <div class="flex justify-between items-center font-bold pt-1 border-t">
+                        <span>Tips Sukarela untuk Runner:</span>
+                        <select id="co-tip" onchange="recalculateCheckout()" class="select select-bordered select-xs w-32">
+                            <option value="0">Tanpa Tips</option>
+                            <option value="2000">Rp 2.000</option>
+                            <option value="5000">Rp 5.000</option>
+                            <option value="10000">Rp 10.000</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-between items-center font-bold pt-1 border-t">
+                        <span class="flex items-center gap-1">
+                            <input type="checkbox" id="co-claim-reward" onchange="toggleRewardClaim()" class="checkbox checkbox-xs checkbox-success">
+                            Klaim Saldo Reward (<span id="co-max-reward">0</span>)
+                        </span>
+                        <span id="co-reward-applied" class="text-success font-black">Rp 0</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-between font-black text-sm border-t pt-1">
+                    <span>Total Bayar (COD):</span>
+                    <span id="co-grandtotal" class="text-emerald-700">Rp 0</span>
+                </div>
+
+                <label class="font-bold pt-1">Catatan Tambahan (Opsional)</label>
+                <input type="text" id="co-notes" placeholder="Contoh: Jangan terlalu pedas" class="input input-bordered input-sm w-full">
+            </div>
+
+            <div class="modal-action flex gap-2">
+                <button onclick="closeCheckoutModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
+                <button onclick="submitOrder()" class="btn btn-sm btn-success text-white font-bold flex-1">Kirim Pesanan (COD)</button>
             </div>
         </div>
     </div>
 
     <!-- MODAL PESANAN SAYA -->
-    <div id="pesanan-modal" class="modal">
-        <div class="modal-box max-w-md space-y-3">
+    <div id="my-orders-modal" class="modal">
+        <div class="modal-box max-w-lg space-y-3">
             <h3 class="font-bold text-sm text-emerald-700">📦 Riwayat Pesanan Saya</h3>
-            <div id="pesanan-list-container" class="space-y-2 max-h-60 overflow-y-auto divide-y">
-                <p class="text-xs opacity-60 text-center py-6">Silakan login terlebih dahulu.</p>
-            </div>
-            <div class="modal-action">
-                <button onclick="closePesananModal()" class="btn btn-sm btn-ghost w-full">Tutup</button>
-            </div>
+            <div id="my-orders-list" class="space-y-2 max-h-60 overflow-y-auto divide-y text-xs"><p class="text-center py-4 opacity-60">Memuat...</p></div>
+            <div class="modal-action"><button onclick="closeMyOrdersModal()" class="btn btn-sm btn-ghost w-full">Tutup</button></div>
         </div>
     </div>
 
-    <!-- MODAL CHECKOUT -->
-    <div id="checkout-modal" class="modal">
-        <div class="modal-box max-w-md space-y-4">
-            <h3 class="font-black text-sm text-emerald-700">🛒 Konfirmasi Checkout Pesanan</h3>
-            <div id="checkout-items-summary" class="space-y-1.5 text-xs max-h-40 overflow-y-auto divide-y"></div>
-            <div class="border-t pt-2 space-y-2 text-xs">
-                <div class="flex justify-between font-bold">
-                    <span>Metode Pembayaran:</span>
-                    <span class="text-success">COD (Bayar di Tempat ke Runner)</span>
-                </div>
-                <div>
-                    <label class="label text-[11px] font-bold pb-0.5">Catatan / Keterangan Ruangan</label>
-                    <input type="text" id="checkout-notes" placeholder="Contoh: Meja Rapat Lantai 2" class="input input-bordered input-sm w-full text-xs">
-                </div>
-            </div>
-            <div class="modal-action flex gap-2">
-                <button onclick="closeCheckoutModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
-                <button onclick="submitOrder()" class="btn btn-sm btn-success text-white font-bold flex-1">Kirim Pesanan</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- SCRIPT LOGIC -->
     <script>
-        let globalMerchantsData = [];
-        let cart = [];
-        let currentUser = null;
-        let activeCategory = 'all';
-        let expandedMerchants = {}; 
+        let globalMerchants = [], cart = [], currentUser = null, globalLocations = [], globalBatches = [];
+        let expandedMerchants = {};
+        let currentCalculatedFee = { delivery: 3000, service: 2000, distance: 1.0 };
 
         document.addEventListener('DOMContentLoaded', () => {
-            checkLocalUser();
-            loadActiveMerchants();
+            const savedUser = localStorage.getItem('shooper_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                renderAuthNavbar();
+            }
+            loadCatalog();
+            loadLocations();
+            loadBatches();
         });
 
-        function checkLocalUser() {
-            const saved = localStorage.getItem('shooper_user');
-            if (saved) {
-                currentUser = JSON.parse(saved);
-                document.getElementById('user-welcome-msg').innerText = currentUser.name;
-                document.getElementById('header-location-label').innerText = currentUser.department_location || 'Kantor Kecamatan';
-                document.getElementById('header-reward-text').innerText = `Rp ${(currentUser.reward_balance || 0).toLocaleString('id-ID')}`;
-                document.getElementById('btn-auth-action').innerText = 'Logout';
-                document.getElementById('btn-auth-action').setAttribute('onclick', 'logoutUser()');
+        function formatUppercase(input) { input.value = input.value.toUpperCase(); }
+
+        function renderAuthNavbar() {
+            const area = document.getElementById('auth-nav-area');
+            if (currentUser) {
+                area.innerHTML = `
+                    <button onclick="openMyOrdersModal()" class="btn btn-sm btn-outline btn-success font-bold text-xs">📦 Pesanan</button>
+                    <button onclick="openRewardModal()" class="btn btn-sm btn-outline btn-warning font-bold text-xs">🎁 Reward</button>
+                    <button onclick="logoutShooper()" class="btn btn-sm btn-error text-white font-bold text-xs">🚪 Logout</button>
+                `;
             } else {
-                currentUser = null;
-                document.getElementById('user-welcome-msg').innerText = 'Masuk untuk mulai titip';
-                document.getElementById('btn-auth-action').innerText = 'Masuk / Daftar';
-                document.getElementById('btn-auth-action').setAttribute('onclick', 'openLoginModal()');
+                area.innerHTML = `
+                    <button onclick="openMyOrdersModal()" class="btn btn-sm btn-outline btn-success font-bold text-xs">📦 Pesanan</button>
+                    <button onclick="openLoginModal()" class="btn btn-sm btn-success text-white font-bold text-xs" id="nav-auth-btn">👤 Masuk</button>
+                `;
             }
         }
 
-        function logoutUser() {
+        function logoutShooper() {
             localStorage.removeItem('shooper_user');
-            checkLocalUser();
+            currentUser = null;
+            renderAuthNavbar();
+            alert('Berhasil logout.');
         }
 
-        function openLoginModal() {
-            document.getElementById('login-modal').classList.add('modal-open');
+        function openRewardModal() {
+            if (!currentUser) { openLoginModal(); return; }
+            document.getElementById('modal-reward-balance').innerText = `Rp ${parseFloat(currentUser.reward_balance || 0).toLocaleString('id-ID')}`;
+            document.getElementById('reward-modal').classList.add('modal-open');
         }
+        function closeRewardModal() { document.getElementById('reward-modal').classList.remove('modal-open'); }
 
-        function closeLoginModal() {
-            document.getElementById('login-modal').classList.remove('modal-open');
-        }
-
-        async function submitShooperLogin() {
-            const nameInput = document.getElementById('login-name-input').value.trim();
-            const phone = document.getElementById('login-phone-input').value.trim();
-            
-            if (!phone) return alert('Nomor WA wajib diisi!');
-
-            const finalName = nameInput !== '' ? nameInput : `Shooper (${phone})`;
-
+        async function loadLocations() {
             try {
-                // Cek atau daftarkan shooper otomatis lewat register endpoint (on conflict update name)
-                let res = await fetch('/api/auth/register-shooper', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: finalName, phone, location: 'Kantor Kecamatan' })
-                });
-                let data = await res.json();
-
-                if (data.success) {
-                    localStorage.setItem('shooper_user', JSON.stringify(data.user));
-                    closeLoginModal();
-                    checkLocalUser();
-                } else {
-                    alert(data.error || 'Gagal masuk.');
-                }
-            } catch (err) {
-                alert('Gagal menghubungkan ke server.');
-            }
+                const res = await fetch('/api/locations');
+                globalLocations = await res.json();
+                const sel = document.getElementById('co-location');
+                sel.innerHTML = '<option value="">Pilih Lokasi Pengiriman</option>';
+                globalLocations.forEach(l => { sel.innerHTML += `<option value="${l.name}">${l.name} (${l.area_type})</option>`; });
+            } catch(e) {}
         }
 
-        async function loadActiveMerchants() {
+        async function loadBatches() {
+            try {
+                const res = await fetch('/api/batches');
+                globalBatches = await res.json();
+                const sel = document.getElementById('co-batch');
+                sel.innerHTML = '<option value="">Pilih Jadwal Batch Waktu</option>';
+                globalBatches.forEach(b => {
+                    sel.innerHTML += `<option value="${b.id}">${b.batch_name} (Tutup: ${b.cutoff_time.substring(0,5)} | Est Sampai: ${b.delivery_estimation_minutes} mnt stlh cut-off)</option>`;
+                });
+            } catch(e) {}
+        }
+
+        async function loadCatalog() {
             try {
                 const res = await fetch('/api/merchants/active');
-                globalMerchantsData = await res.json();
-                renderMerchantsCatalog();
-            } catch (err) {
-                document.getElementById('merchants-container').innerHTML = '<p class="text-xs text-error text-center py-10">Gagal memuat katalog warung.</p>';
+                globalMerchants = await res.json();
+                renderCatalog();
+            } catch (e) {
+                document.getElementById('catalog-container').innerHTML = '<p class="text-xs text-center py-12 text-error">Gagal memuat katalog.</p>';
             }
-        }
-
-        const merchantBgColors = [
-            'bg-emerald-50/60 border-emerald-100',
-            'bg-teal-50/60 border-teal-100',
-            'bg-amber-50/50 border-amber-100',
-            'bg-cyan-50/50 border-cyan-100',
-            'bg-lime-50/50 border-lime-100'
-        ];
-
-        function renderMerchantsCatalog() {
-            const container = document.getElementById('merchants-container');
-            const searchKeyword = document.getElementById('main-search').value.toLowerCase().trim();
-
-            if (globalMerchantsData.length === 0) {
-                container.innerHTML = '<p class="text-xs opacity-70 text-center py-10">Belum ada warung atau menu tersedia saat ini.</p>';
-                return;
-            }
-
-            container.innerHTML = '';
-
-            globalMerchantsData.forEach((m, index) => {
-                let menus = m.menus || [];
-                if (activeCategory !== 'all') {
-                    menus = menus.filter(item => item.name.toLowerCase().includes(activeCategory.toLowerCase()));
-                }
-                if (searchKeyword) {
-                    menus = menus.filter(item => item.name.toLowerCase().includes(searchKeyword) || m.name.toLowerCase().includes(searchKeyword));
-                }
-
-                if (menus.length === 0 && searchKeyword && !m.name.toLowerCase().includes(searchKeyword)) {
-                    return; 
-                }
-
-                const isExpanded = expandedMerchants[m.id] || false;
-                const visibleMenus = isExpanded ? menus : menus.slice(0, 2); 
-                const hasMore = menus.length > 2;
-                const cardBgClass = merchantBgColors[index % merchantBgColors.length];
-
-                let menusHtml = '';
-                if (visibleMenus.length === 0) {
-                    menusHtml = '<p class="text-[11px] opacity-60 italic py-2">Tidak ada menu pada kategori ini.</p>';
-                } else {
-                    visibleMenus.forEach(item => {
-                        menusHtml += `
-                            <div class="flex justify-between items-center bg-base-100/80 p-2.5 rounded-xl border shadow-sm">
-                                <div class="flex items-center gap-3">
-                                    <img src="${item.image_url}" class="w-12 h-12 object-cover rounded-lg shadow-sm" alt="${item.name}">
-                                    <div>
-                                        <h4 class="font-bold text-xs text-gray-900">${item.name}</h4>
-                                        <p class="font-black text-xs text-emerald-700 mt-0.5">Rp ${item.price.toLocaleString('id-ID')}</p>
-                                    </div>
-                                </div>
-                                <button onclick="addToCart(${item.id}, '${item.name}', ${item.price}, '${m.name}')" class="btn btn-xs btn-success text-white font-bold shadow">
-                                    + Tambah
-                                </button>
-                            </div>
-                        `;
-                    });
-                }
-
-                let expandButtonHtml = '';
-                if (hasMore) {
-                    const btnText = isExpanded ? 'Tutup Sebagian' : `Lihat Menu Lainnya (${menus.length - 2} menu lainnya)`;
-                    const btnIcon = isExpanded ? '▲' : '▼';
-                    expandButtonHtml = `
-                        <button onclick="toggleExpandMerchant(${m.id})" class="btn btn-xs btn-outline btn-success w-full font-bold text-[11px] mt-1 bg-base-100/50">
-                            ${btnText} ${btnIcon}
-                        </button>
-                    `;
-                }
-
-                const statusBadge = m.is_open ? '<span class="badge badge-success badge-xs font-bold text-white">Buka</span>' : '<span class="badge badge-error badge-xs font-bold text-white">Tutup</span>';
-
-                container.innerHTML += `
-                    <div class="card border shadow-sm p-4 rounded-2xl space-y-3 ${cardBgClass}">
-                        <div class="flex justify-between items-center border-b border-black/5 pb-2">
-                            <div>
-                                <h3 class="font-black text-sm text-emerald-950">${m.name}</h3>
-                                <p class="text-[10px] opacity-70">🕒 ${m.open_time} - ${m.close_time} WIB</p>
-                            </div>
-                            <div>${statusBadge}</div>
-                        </div>
-                        <div class="space-y-2">
-                            ${menusHtml}
-                            ${expandButtonHtml}
-                        </div>
-                    </div>
-                `;
-            });
         }
 
         function toggleExpandMerchant(merchantId) {
             expandedMerchants[merchantId] = !expandedMerchants[merchantId];
-            renderMerchantsCatalog();
+            renderCatalog();
         }
 
-        function filterCategory(cat) {
-            activeCategory = cat;
-            document.querySelectorAll('.cat-btn').forEach(btn => {
-                btn.classList.remove('btn-success', 'text-white', 'btn-active');
-                btn.classList.add('btn-ghost', 'border', 'bg-base-100');
-            });
-            event.target.classList.remove('btn-ghost', 'border', 'bg-base-100');
-            event.target.classList.add('btn-success', 'text-white', 'btn-active');
-            renderMerchantsCatalog();
-        }
-
-        function filterMerchantsAndMenus() {
-            renderMerchantsCatalog();
-        }
-
-        function addToCart(id, name, price, merchantName) {
-            const existing = cart.find(i => i.menu_id === id);
-            if (existing) {
-                existing.quantity += 1;
-            } else {
-                cart.push({ menu_id: id, name, price, merchant_name: merchantName, quantity: 1 });
-            }
-            renderCartSummary();
-        }
-
-        function renderCartSummary() {
-            const cartBar = document.getElementById('floating-cart');
-            const totalCountEl = document.getElementById('cart-item-count');
-            const totalPriceEl = document.getElementById('cart-total-price');
-
-            let totalQty = 0;
-            let totalPrice = 0;
-
-            cart.forEach(i => {
-                totalQty += i.quantity;
-                totalPrice += i.price * i.quantity;
-            });
-
-            if (totalQty > 0) {
-                cartBar.classList.remove('hidden');
-                totalCountEl.innerText = totalQty;
-                totalPriceEl.innerText = `Rp ${totalPrice.toLocaleString('id-ID')}`;
-            } else {
-                cartBar.classList.add('hidden');
-            }
-        }
-
-        function openCheckoutModal() {
-            if (!currentUser) {
-                alert('Silakan Masuk / Daftar terlebih dahulu untuk checkout pesanan!');
-                openLoginModal();
-                return;
-            }
-
-            const container = document.getElementById('checkout-items-summary');
+        function renderCatalog() {
+            const container = document.getElementById('catalog-container');
+            const kw = document.getElementById('search-input').value.toLowerCase().trim();
             container.innerHTML = '';
-            let total = 0;
 
-            cart.forEach(i => {
-                const sub = i.price * i.quantity;
-                total += sub;
-                container.innerHTML += `
-                    <div class="flex justify-between items-center py-1">
-                        <div>
-                            <p class="font-bold">${i.name}</p>
-                            <p class="text-[10px] opacity-70">${i.merchant_name} x ${i.quantity}</p>
-                        </div>
-                        <span class="font-black text-emerald-700">Rp ${sub.toLocaleString('id-ID')}</span>
-                    </div>
-                `;
-            });
+            let filtered = globalMerchants.map(m => {
+                let filteredMenus = m.menus.filter(menu => menu.name.toLowerCase().includes(kw) || m.name.toLowerCase().includes(kw));
+                return { ...m, menus: filteredMenus };
+            }).filter(m => m.menus.length > 0);
 
-            document.getElementById('checkout-modal').classList.add('modal-open');
-        }
-
-        function closeCheckoutModal() {
-            document.getElementById('checkout-modal').classList.remove('modal-open');
-        }
-
-        async function submitOrder() {
-            const notes = document.getElementById('checkout-notes').value.trim();
-            if (!currentUser) return alert('Silakan login terlebih dahulu.');
-
-            try {
-                const res = await fetch('/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: currentUser.name,
-                        phone: currentUser.phone_number,
-                        location: currentUser.department_location || 'Kantor Kecamatan',
-                        notes: notes,
-                        items: cart
-                    })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert('Pesanan berhasil dibuat! Runner akan segera mengonfirmasi pesanan Anda.');
-                    cart = [];
-                    renderCartSummary();
-                    closeCheckoutModal();
-                    currentUser.reward_balance = data.new_reward_balance;
-                    localStorage.setItem('shooper_user', JSON.stringify(currentUser));
-                    checkLocalUser();
-                } else {
-                    alert(data.error || 'Gagal membuat pesanan.');
-                }
-            } catch (err) {
-                alert('Gagal terhubung ke server.');
-            }
-        }
-
-        async function openPesananModal() {
-            if (!currentUser) {
-                alert('Silakan Masuk / Daftar terlebih dahulu untuk melihat riwayat pesanan.');
-                openLoginModal();
+            if (filtered.length === 0) {
+                container.innerHTML = '<p class="text-xs opacity-60 text-center py-16">Tidak ada warung atau menu ditemukan.</p>';
                 return;
             }
 
-            const container = document.getElementById('pesanan-list-container');
-            container.innerHTML = '<p class="text-xs opacity-60 text-center py-4">Memuat riwayat...</p>';
-            document.getElementById('pesanan-modal').classList.add('modal-open');
+            filtered.forEach(m => {
+                let isExpanded = expandedMerchants[m.id] || false;
+                let displayMenus = isExpanded ? m.menus : m.menus.slice(0, 4);
+                let hasMore = m.menus.length > 4;
 
-            try {
-                const res = await fetch(`/api/shooper/my-orders?phone=${currentUser.phone_number}`);
-                const orders = await res.json();
-
-                if (orders.length === 0) {
-                    container.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Belum ada riwayat pesanan.</p>';
-                    return;
-                }
-
-                container.innerHTML = '';
-                orders.forEach(o => {
-                    let badge = o.status === 'completed' ? 'badge-success' : 'badge-warning';
-                    container.innerHTML += `
-                        <div class="py-2 space-y-1 text-xs">
-                            <div class="flex justify-between font-bold">
-                                <span class="text-emerald-700">Order #${o.order_id}</span>
-                                <span class="badge ${badge} badge-xs text-white">${o.status}</span>
-                            </div>
-                            <p class="opacity-80">${o.items_summary}</p>
-                            <div class="flex justify-between items-center font-black pt-1">
-                                <span>Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span>
-                                <a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 Struk PDF</a>
+                let menusHtml = '';
+                displayMenus.forEach(menu => {
+                    menusHtml += `
+                        <div class="card bg-base-100 border shadow-sm rounded-2xl overflow-hidden flex flex-col justify-between">
+                            <div class="relative h-28 bg-base-200"><img src="${menu.image_url}" class="w-full h-full object-cover"></div>
+                            <div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-black text-xs line-clamp-1">${menu.name}</h4>
+                                    <p class="font-bold text-xs text-emerald-700">Rp ${menu.price.toLocaleString('id-ID')}</p>
+                                </div>
+                                <button onclick="addToCart(${menu.id}, '${menu.name}', ${menu.price}, '${m.name}', ${m.id})" class="btn btn-xs btn-success text-white font-bold w-full">+ Titip</button>
                             </div>
                         </div>
                     `;
                 });
-            } catch (err) {
-                container.innerHTML = '<p class="text-xs text-error text-center py-4">Gagal memuat data pesanan.</p>';
+
+                let seeMoreBtnHtml = '';
+                if (hasMore) {
+                    seeMoreBtnHtml = `
+                        <div class="text-center pt-2">
+                            <button onclick="toggleExpandMerchant(${m.id})" class="btn btn-xs btn-outline btn-success font-bold">
+                                ${isExpanded ? 'Tampilkan Lebih Sedikit' : `See More (${m.menus.length - 4} menu lainnya)`}
+                            </button>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML += `
+                    <div class="card bg-base-100 p-4 shadow-sm border space-y-3">
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <div>
+                                <h3 class="font-black text-sm text-emerald-800">${m.name}</h3>
+                                <p class="text-[11px] opacity-70">📍 ${m.address || '-'} (${m.location_name || 'Umum'}) | Buka: ${m.open_time} - ${m.close_time}</p>
+                            </div>
+                            ${m.map_link ? `<a href="${m.map_link}" target="_blank" class="btn btn-xs btn-outline btn-success">🗺️ Map</a>` : ''}
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">${menusHtml}</div>
+                        ${seeMoreBtnHtml}
+                    </div>
+                `;
+            });
+        }
+
+        function addToCart(id, name, price, merchantName, merchantId) {
+            const ex = cart.find(i => i.menu_id === id);
+            if (ex) { ex.quantity += 1; } else { cart.push({ menu_id: id, name, price, quantity: 1, merchantName, merchantId }); }
+            updateFloatingCart();
+        }
+
+        function updateFloatingCart() {
+            const bar = document.getElementById('cart-floating-bar');
+            const badge = document.getElementById('cart-badge-count');
+            const totalEl = document.getElementById('cart-floating-total');
+            let count = 0, gt = 0;
+            cart.forEach(i => { count += i.quantity; gt += i.price * i.quantity; });
+            if (count > 0) {
+                bar.classList.remove('hidden');
+                badge.innerText = count;
+                totalEl.innerText = `Rp ${gt.toLocaleString('id-ID')}`;
+            } else { bar.classList.add('hidden'); }
+        }
+
+        function openLoginModal() { document.getElementById('login-modal').classList.add('modal-open'); }
+        function closeLoginModal() { document.getElementById('login-modal').classList.remove('modal-open'); }
+
+        async function submitShooperLogin() {
+            const phone = document.getElementById('login-phone').value.trim();
+            const name = document.getElementById('login-name').value.trim();
+
+            if (!phone || !name) return alert('Nomor WA dan Nama Lengkap wajib diisi!');
+            const upperName = name.toUpperCase();
+            
+            const res = await fetch('/api/auth/register-shooper', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ name: upperName, phone, location: 'Kantor Kecamatan' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                currentUser = data.user;
+                localStorage.setItem('shooper_user', JSON.stringify(currentUser));
+                renderAuthNavbar();
+                closeLoginModal();
+                alert(`Selamat datang, ${currentUser.name}!`);
+            } else {
+                alert(data.error);
             }
         }
 
-        function closePesananModal() {
-            document.getElementById('pesanan-modal').classList.remove('modal-open');
+        async function openCheckoutModal() {
+            if (!currentUser) { openLoginModal(); return; }
+            const container = document.getElementById('checkout-items-summary');
+            container.innerHTML = '';
+            let sub = 0;
+            cart.forEach(i => {
+                sub += i.price * i.quantity;
+                container.innerHTML += `<div class="py-1 flex justify-between text-xs"><span>${i.quantity}x ${i.name}</span><span class="font-bold">Rp ${(i.price * i.quantity).toLocaleString('id-ID')}</span></div>`;
+            });
+            document.getElementById('co-subtotal').innerText = `Rp ${sub.toLocaleString('id-ID')}`;
+            
+            const maxReward = parseFloat(currentUser.reward_balance || 0);
+            document.getElementById('co-max-reward').innerText = `Rp ${maxReward.toLocaleString('id-ID')}`;
+            document.getElementById('co-claim-reward').checked = false;
+            document.getElementById('co-claim-reward').disabled = maxReward <= 0;
+            document.getElementById('co-reward-applied').innerText = 'Rp 0';
+            document.getElementById('co-tip').value = '0';
+            
+            await recalculateCheckout();
+            document.getElementById('checkout-modal').classList.add('modal-open');
         }
+
+        function toggleRewardClaim() {
+            const isChecked = document.getElementById('co-claim-reward').checked;
+            const maxReward = parseFloat(currentUser.reward_balance || 0);
+            if (isChecked && maxReward <= 0) {
+                alert('Saldo reward Anda tidak mencukupi untuk diklaim.');
+                document.getElementById('co-claim-reward').checked = false;
+            }
+            recalculateCheckout();
+        }
+
+        async function recalculateCheckout() {
+            const loc = document.getElementById('co-location').value;
+            let sub = 0;
+            cart.forEach(i => sub += i.price * i.quantity);
+
+            let delivery = 3000, service = 2000, dist = 1.0;
+            if (loc && cart.length > 0 && cart[0].merchantId) {
+                try {
+                    const res = await fetch('/api/calculate-delivery', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({ merchant_id: cart[0].merchantId, destination_location_name: loc })
+                    });
+                    const data = await res.json();
+                    delivery = data.delivery_fee;
+                    service = data.service_fee;
+                    dist = data.distance_km;
+                } catch(e) {}
+            }
+
+            document.getElementById('co-distance-label').innerText = dist;
+            document.getElementById('co-delivery').innerText = `Rp ${delivery.toLocaleString('id-ID')}`;
+            document.getElementById('co-service').innerText = `Rp ${service.toLocaleString('id-ID')}`;
+
+            const tip = parseFloat(document.getElementById('co-tip').value) || 0;
+            
+            let rewardUsed = 0;
+            const isClaimed = document.getElementById('co-claim-reward').checked;
+            const maxReward = parseFloat(currentUser.reward_balance || 0);
+            if (isClaimed && maxReward > 0) {
+                let baseTotal = sub + delivery + service + tip;
+                rewardUsed = Math.min(maxReward, baseTotal);
+                document.getElementById('co-reward-applied').innerText = `- Rp ${rewardUsed.toLocaleString('id-ID')}`;
+            } else {
+                document.getElementById('co-reward-applied').innerText = 'Rp 0';
+            }
+            
+            let grand = sub + delivery + service + tip - rewardUsed;
+            if (grand < 0) grand = 0;
+            document.getElementById('co-grandtotal').innerText = `Rp ${grand.toLocaleString('id-ID')}`;
+        }
+
+        function closeCheckoutModal() { document.getElementById('checkout-modal').classList.remove('modal-open'); }
+
+        async function submitOrder() {
+            const location = document.getElementById('co-location').value;
+            const batchId = document.getElementById('co-batch').value;
+
+            if (!location) return alert('Silakan pilih alamat/lokasi pengiriman terlebih dahulu!');
+            if (!batchId) return alert('Silakan pilih jadwal Batch Waktu pengiriman!');
+
+            const notes = document.getElementById('co-notes').value.trim();
+            const tip = parseFloat(document.getElementById('co-tip').value) || 0;
+            const isClaimed = document.getElementById('co-claim-reward').checked;
+            const maxReward = parseFloat(currentUser.reward_balance || 0);
+            
+            let sub = 0; cart.forEach(i => sub += i.price * i.quantity);
+            let rewardUsed = 0;
+            if (isClaimed && maxReward > 0) {
+                rewardUsed = Math.min(maxReward, sub + 3000 + 2000 + tip);
+            }
+
+            const payload = {
+                name: currentUser.name,
+                phone: currentUser.phone_number,
+                location,
+                notes, items: cart, tip, reward_used: rewardUsed, batch_id: batchId
+            };
+            const res = await fetch('/api/orders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (data.success) {
+                if (rewardUsed > 0) {
+                    currentUser.reward_balance = maxReward - rewardUsed;
+                    localStorage.setItem('shooper_user', JSON.stringify(currentUser));
+                }
+                alert('Pesanan berhasil dikirim dengan jadwal Batch terpilih!');
+                cart = []; updateFloatingCart(); closeCheckoutModal();
+                openMyOrdersModal();
+            } else { alert(data.error); }
+        }
+
+        async function openMyOrdersModal() {
+            if (!currentUser) { openLoginModal(); return; }
+            document.getElementById('my-orders-modal').classList.add('modal-open');
+            const list = document.getElementById('my-orders-list');
+            list.innerHTML = '<p class="text-center py-4 opacity-60">Memuat pesanan...</p>';
+            try {
+                const res = await fetch(`/api/shooper/my-orders?phone=${encodeURIComponent(currentUser.phone_number)}`);
+                const orders = await res.json();
+                list.innerHTML = '';
+                if (orders.length === 0) { list.innerHTML = '<p class="text-center py-4 opacity-60">Belum ada pesanan.</p>'; return; }
+                orders.forEach(o => {
+                    let batchInfo = o.batch_name ? `<br><b>Jadwal:</b> ${o.batch_name} (Tutup: ${o.cutoff_time ? o.cutoff_time.substring(0,5) : '-'})` : '';
+                    list.innerHTML += `<div class="p-2 bg-base-100 border rounded space-y-1"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><span class="badge badge-success badge-xs text-white">${o.status}</span></div><p class="opacity-80">${o.items_summary} ${batchInfo}</p><div class="flex justify-between items-center pt-1"><span class="font-black">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span><a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 Struk PDF</a></div></div>`;
+                });
+            } catch(e) { list.innerHTML = '<p class="text-center py-4 text-error">Gagal memuat pesanan.</p>'; }
+        }
+        function closeMyOrdersModal() { document.getElementById('my-orders-modal').classList.remove('modal-open'); }
     </script>
 </body>
 </html>

@@ -9,18 +9,16 @@
 </head>
 <body class="min-h-screen bg-base-200 text-base-content pb-20">
 
-    <!-- LOGIN RUNNER MODAL -->
     <div id="runner-login-modal" class="modal modal-open">
-        <div class="modal-box max-w-sm space-y-3">
+        <div class="modal-box max-w-sm space-y-3 text-xs">
             <h3 class="font-bold text-sm text-emerald-700 text-center">🛵 Login Runner</h3>
-            <input type="tel" id="runner-phone" placeholder="No WA (0812...)" class="input input-bordered input-sm w-full text-xs">
+            <input type="tel" id="runner-phone" placeholder="No WA / 'yasir'" class="input input-bordered input-sm w-full text-xs">
             <input type="password" id="runner-pin" placeholder="PIN" class="input input-bordered input-sm w-full text-xs">
             <button onclick="loginRunner()" class="btn btn-sm btn-success text-white w-full font-bold">Masuk</button>
             <div class="text-center pt-1"><a href="/" class="text-xs link link-neutral">← Kembali</a></div>
         </div>
     </div>
 
-    <!-- MAIN RUNNER PANEL -->
     <div id="runner-main-content" class="hidden flex flex-col min-h-screen">
         <header class="navbar bg-base-100 shadow px-6 sticky top-0 z-40 border-b flex justify-between">
             <h1 class="text-sm font-black text-emerald-700">🛵 Runner Control Panel</h1>
@@ -29,65 +27,90 @@
 
         <div class="bg-base-100 border-b px-6 pt-2 shadow-sm">
             <div class="tabs tabs-lifted max-w-6xl mx-auto">
-                <a role="tab" onclick="switchRunnerTab('orders')" id="tab-orders" class="tab tab-active font-bold text-xs">📦 Orders & Zonasi</a>
-                <a role="tab" onclick="switchRunnerTab('merchant')" id="tab-merchant" class="tab font-bold text-xs">🏪 Daftar Merchant & Pendaftaran</a>
+                <a role="tab" onclick="switchRunnerTab('orders')" id="tab-orders" class="tab tab-active font-bold text-xs">📦 Batch Orders</a>
+                <a role="tab" onclick="switchRunnerTab('report')" id="tab-report" class="tab font-bold text-xs">📊 Laporan Pengantaran</a>
+                <a role="tab" onclick="switchRunnerTab('merchant')" id="tab-merchant" class="tab font-bold text-xs">🏪 Daftar Merchant</a>
                 <a role="tab" onclick="switchRunnerTab('location')" id="tab-location" class="tab font-bold text-xs">📍 Master Location</a>
             </div>
         </div>
 
         <main class="max-w-6xl mx-auto w-full p-6 flex-1 space-y-4">
-            <!-- TAB 1: ORDERS -->
+            <!-- TAB 1: BATCH ORDERS -->
             <div id="sheet-orders" class="runner-sheet space-y-3">
-                <div class="flex justify-between items-center"><h3 class="font-bold text-xs text-emerald-800">Daftar Pengantaran Aktif</h3><button onclick="loadRunnerData()" class="btn btn-xs btn-outline btn-success">Refresh</button></div>
-                <div id="runner-orders-container" class="space-y-3"><p class="text-xs opacity-60 text-center py-6">Memuat...</p></div>
+                <div class="flex justify-between items-center"><h3 class="font-bold text-xs text-emerald-800">Daftar Batch Pesanan Online</h3><button onclick="loadRunnerData()" class="btn btn-xs btn-outline btn-success">Refresh</button></div>
+                <div id="runner-batches-container" class="space-y-4"><p class="text-xs opacity-60 text-center py-6">Memuat batch...</p></div>
             </div>
 
-            <!-- TAB 2: KELOLA MERCHANT OLEH RUNNER -->
+            <!-- TAB 2: LAPORAN PENGANTARAN RUNNER -->
+            <div id="sheet-report" class="runner-sheet space-y-4 hidden">
+                <div class="flex justify-between items-center"><h3 class="font-bold text-xs text-emerald-800">Laporan Riwayat Pengantaran Selesai</h3><button onclick="loadRunnerReport()" class="btn btn-xs btn-outline btn-success">Refresh</button></div>
+                <div id="runner-report-container" class="space-y-2"><p class="text-xs opacity-60 text-center py-6">Memuat laporan...</p></div>
+            </div>
+
+            <!-- TAB 3: MERCHANT -->
             <div id="sheet-merchant" class="runner-sheet space-y-4 hidden">
                 <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-xs text-emerald-800">Daftar Merchant & Pendaftaran Mandiri</h3>
-                    <button onclick="openRunnerMerchantModal()" class="btn btn-xs btn-success text-white font-bold">+ Daftarkan Merchant Baru</button>
+                    <h3 class="font-bold text-xs text-emerald-800">Daftar Merchant</h3>
+                    <button onclick="openRunnerMerchantModal()" class="btn btn-xs btn-success text-white font-bold">+ Daftarkan Merchant</button>
                 </div>
-                <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>ID</th><th>Warung</th><th>No WA</th><th>Zonasi Lokasi</th><th>Alamat</th><th>Aksi</th></tr></thead><tbody id="runner-merchants-tbody"></tbody></table></div>
+                <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>ID</th><th>Warung</th><th>No WA</th><th>Zonasi</th><th>Alamat</th><th>Aksi</th></tr></thead><tbody id="runner-merchants-tbody"></tbody></table></div>
             </div>
 
-            <!-- TAB 3: LOCATION -->
+            <!-- TAB 4: LOCATION -->
             <div id="sheet-location" class="runner-sheet space-y-4 hidden">
                 <div class="card bg-base-100 p-4 shadow border space-y-2 max-w-md">
-                    <h3 class="font-bold text-xs text-emerald-700">Tambah Master Location Baru</h3>
+                    <h3 class="font-bold text-xs text-emerald-700" id="loc-form-title">Tambah Master Location Baru</h3>
+                    <input type="hidden" id="loc-id">
                     <input type="text" id="loc-name" placeholder="Nama Lokasi / Instansi" class="input input-bordered input-sm w-full text-xs">
                     <input type="text" id="loc-address" placeholder="Alamat Detail" class="input input-bordered input-sm w-full text-xs">
-                    <button onclick="saveLocation()" class="btn btn-xs btn-success text-white font-bold w-full">Simpan Lokasi</button>
+                    <div class="flex gap-2">
+                        <button onclick="resetLocForm()" class="btn btn-xs btn-ghost">Batal</button>
+                        <button onclick="saveLocation()" class="btn btn-xs btn-success text-white font-bold flex-1">Simpan Lokasi</button>
+                    </div>
                 </div>
                 <div class="card bg-base-100 p-4 shadow border space-y-2">
                     <h3 class="font-bold text-xs text-emerald-700">Daftar Master Location</h3>
-                    <div id="locations-list-box" class="space-y-1 text-xs"></div>
+                    <div id="locations-list-box" class="space-y-2 text-xs divide-y"></div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- MODAL TAMBAH / EDIT MERCHANT OLEH RUNNER -->
+    <!-- MODAL VALIDASI SHOOPER -->
+    <div id="validate-shooper-modal" class="modal">
+        <div class="modal-box max-w-xs space-y-3 text-xs text-center">
+            <h3 class="font-bold text-sm text-emerald-700">🔍 Validasi Pembeli Riil</h3>
+            <p class="opacity-70">Apakah pembeli ini merespons dan valid (Riil) atau fiktif (Fake)?</p>
+            <input type="hidden" id="val-order-id">
+            <div class="modal-action flex gap-2">
+                <button onclick="submitShooperValidation('confirmed')" class="btn btn-sm btn-success text-white font-bold flex-1">Riil</button>
+                <button onclick="submitShooperValidation('void')" class="btn btn-sm btn-error text-white font-bold flex-1">Fake</button>
+            </div>
+            <button onclick="closeValidateModal()" class="btn btn-xs btn-ghost w-full">Tutup</button>
+        </div>
+    </div>
+
+    <!-- MODAL MERCHANT -->
     <div id="runner-merchant-modal" class="modal">
-        <div class="modal-box max-w-md space-y-3">
-            <h3 class="font-bold text-sm text-emerald-700" id="rm-modal-title">Daftarkan Merchant Baru</h3>
+        <div class="modal-box max-w-md space-y-3 text-xs">
+            <h3 class="font-bold text-sm text-emerald-700" id="rm-modal-title">Daftarkan Merchant</h3>
             <input type="hidden" id="rm-id">
-            <div class="form-control space-y-2 text-xs">
+            <div class="form-control space-y-2">
                 <label class="font-bold">Nama Warung</label><input type="text" id="rm-name" class="input input-bordered input-sm w-full">
                 <label class="font-bold">No WA Warung</label><input type="tel" id="rm-phone" class="input input-bordered input-sm w-full">
                 <label class="font-bold">Alamat</label><input type="text" id="rm-address" class="input input-bordered input-sm w-full">
-                <label class="font-bold">Zonasi Lokasi (Dari Master Location)</label>
+                <label class="font-bold">Zonasi Lokasi</label>
                 <select id="rm-location-select" class="select select-bordered select-sm w-full"><option value="">Pilih Lokasi</option></select>
                 <label class="font-bold">Nama Pemilik</label><input type="text" id="rm-owner" class="input input-bordered input-sm w-full">
-                <label class="font-bold">Titik Map / Link Google Maps</label><input type="text" id="rm-map" placeholder="https://maps.google.com/..." class="input input-bordered input-sm w-full">
+                <label class="font-bold">Link Google Maps</label><input type="text" id="rm-map" class="input input-bordered input-sm w-full">
                 <div class="grid grid-cols-2 gap-2">
-                    <div><label class="font-bold">Jam Buka</label><input type="time" id="rm-open" value="07:00" class="input input-bordered input-sm w-full"></div>
-                    <div><label class="font-bold">Jam Tutup</label><input type="time" id="rm-close" value="17:00" class="input input-bordered input-sm w-full"></div>
+                    <div><label class="font-bold">Buka</label><input type="time" id="rm-open" value="07:00" class="input input-bordered input-sm w-full"></div>
+                    <div><label class="font-bold">Tutup</label><input type="time" id="rm-close" value="17:00" class="input input-bordered input-sm w-full"></div>
                 </div>
             </div>
             <div class="modal-action flex gap-2">
                 <button onclick="closeRunnerMerchantModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
-                <button onclick="submitRunnerMerchant()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan Merchant</button>
+                <button onclick="submitRunnerMerchant()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan</button>
             </div>
         </div>
     </div>
@@ -111,6 +134,8 @@
             document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('tab-active'));
             document.getElementById(`sheet-${name}`).classList.remove('hidden');
             document.getElementById(`tab-${name}`).classList.add('tab-active');
+
+            if (name === 'report') { loadRunnerReport(); }
         }
 
         async function loginRunner() {
@@ -118,7 +143,7 @@
             const pin = document.getElementById('runner-pin').value.trim();
             const res = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone, pin}) });
             const data = await res.json();
-            if (data.success && data.user.role === 'runner') {
+            if (data.success && (data.user.role === 'runner' || data.user.role === 'admin')) {
                 localStorage.setItem('runner_user', JSON.stringify(data.user));
                 location.reload();
             } else { alert('Login gagal / bukan runner.'); }
@@ -129,25 +154,102 @@
             const res = await fetch('/api/locations');
             globalLocations = await res.json();
             const sel = document.getElementById('rm-location-select');
-            sel.innerHTML = '<option value="">Pilih Lokasi Zonasi</option>';
+            sel.innerHTML = '<option value="">Pilih Lokasi</option>';
             globalLocations.forEach(l => { sel.innerHTML += `<option value="${l.name}">${l.name}</option>`; });
 
             const box = document.getElementById('locations-list-box');
             box.innerHTML = '';
-            globalLocations.forEach(l => { box.innerHTML += `<div class="p-2 bg-base-200 rounded flex justify-between font-bold"><span>${l.name}</span><span class="opacity-70">${l.address || '-'}</span></div>`; });
+            globalLocations.forEach(l => {
+                box.innerHTML += `
+                    <div class="p-2 bg-base-200 rounded flex justify-between items-center text-xs">
+                        <div>
+                            <p class="font-bold">${l.name}</p>
+                            <p class="opacity-70">${l.address || '-'}</p>
+                        </div>
+                        <button onclick='editLocation(${JSON.stringify(l)})' class="btn btn-xs btn-outline btn-success">Edit</button>
+                    </div>
+                `;
+            });
+        }
+
+        function editLocation(l) {
+            document.getElementById('loc-form-title').innerText = `Edit Lokasi: ${l.name}`;
+            document.getElementById('loc-id').value = l.id;
+            document.getElementById('loc-name').value = l.name;
+            document.getElementById('loc-address').value = l.address || '';
+        }
+
+        function resetLocForm() {
+            document.getElementById('loc-form-title').innerText = 'Tambah Master Location Baru';
+            document.getElementById('loc-id').value = '';
+            document.getElementById('loc-name').value = '';
+            document.getElementById('loc-address').value = '';
+        }
+
+        async function saveLocation() {
+            const id = document.getElementById('loc-id').value;
+            const name = document.getElementById('loc-name').value.trim();
+            const address = document.getElementById('loc-address').value.trim();
+            if (!name) return alert('Nama lokasi wajib!');
+            const res = await fetch('/api/runner/locations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: id ? id : null, name, address, area_type: 'Instansi' }) });
+            if ((await res.json()).success) { alert('Lokasi tersimpan!'); resetLocForm(); loadLocationsMaster(); }
         }
 
         async function loadRunnerData() {
             const res = await fetch('/api/runner/delivery-summary');
-            const data = await res.json();
-            const container = document.getElementById('runner-orders-container');
+            const batches = await res.json();
+            const container = document.getElementById('runner-batches-container');
             container.innerHTML = '';
-            if (data.length === 0 || data[0].orders.length === 0) { container.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Tidak ada pesanan.</p>'; }
-            else {
-                data[0].orders.forEach(o => {
-                    container.innerHTML += `<div class="card bg-base-100 p-3 shadow border text-xs space-y-1"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><span class="badge badge-warning badge-xs text-white">${o.status}</span></div><p class="font-bold">${o.shooper_name} (${o.department_location})</p><p class="opacity-80">${o.items_summary}</p></div>`;
-                });
+            
+            if (batches.length === 0) {
+                container.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Tidak ada batch pesanan online aktif.</p>';
+                return;
             }
+
+            batches.forEach(b => {
+                let ordersHtml = '';
+                b.orders.forEach(o => {
+                    let itemsFormatted = (o.items_summary || '').split(',').map(i => `• ${i.trim()}`).join('\n');
+                    
+                    let waShooperText = `Halo ${o.shooper_name}, kami dari Tim Runner Titip Shoopy mengonfirmasi pesanan #${o.order_id} Anda.\n\n*Rincian Pesanan:*\n${itemsFormatted}\n\nRunner siap mengantar ke tempat Anda (${o.department_location})! Mohon tunggu sebentar ya. 🙏😊`;
+                    let waShooperLink = o.phone_number ? `https://wa.me/${o.phone_number.startsWith('0') ? '62'+o.phone_number.substring(1):o.phone_number}?text=${encodeURIComponent(waShooperText)}` : '#';
+
+                    let waMerchantText = `Halo Kak, mohon segera dipersiapkan pesanan untuk Order #${o.order_id}:\n\n*Rincian Menu:*\n${itemsFormatted}\n\nSegera diambil oleh Runner. Terima kasih! 🍳📦`;
+                    let waMerchantLink = `https://wa.me/?text=${encodeURIComponent(waMerchantText)}`;
+
+                    ordersHtml += `
+                        <div class="p-3 bg-base-200 rounded-xl space-y-1.5 border">
+                            <div class="flex justify-between font-bold">
+                                <span class="text-emerald-700">Order #${o.order_id}</span>
+                                <span class="badge badge-warning badge-xs text-white">${o.status}</span>
+                            </div>
+                            <p class="font-bold">${o.shooper_name} (${o.department_location})</p>
+                            <p class="opacity-80 whitespace-pre-line text-[11px]">${itemsFormatted}</p>
+                            
+                            <div class="flex flex-wrap gap-1 pt-2 border-t">
+                                <button onclick="updateOrderStatus(${o.order_id}, 'confirmed')" class="btn btn-xs btn-outline btn-success font-bold">✅ Terima Tugas</button>
+                                <a href="${waShooperLink}" target="_blank" onclick="openValidateModal(${o.order_id})" class="btn btn-xs btn-outline btn-success font-bold">📱 WA Shooper</a>
+                                <a href="${waMerchantLink}" target="_blank" onclick="updateOrderStatus(${o.order_id}, 'preparing')" class="btn btn-xs btn-outline btn-primary font-bold">🏪 WA Merchant</a>
+                                <button onclick="updateOrderStatus(${o.order_id}, 'completed')" class="btn btn-xs btn-success text-white font-bold">🛵 Complete</button>
+                                <button onclick="updateOrderStatus(${o.order_id}, 'void')" class="btn btn-xs btn-error text-white font-bold">❌ Tolak</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML += `
+                    <div class="card bg-base-100 p-4 shadow border space-y-3">
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <div>
+                                <h3 class="font-black text-sm text-emerald-800">🏪 Merchant: ${b.merchant_name}</h3>
+                                <p class="text-[11px] opacity-70">Telp/WA: ${b.merchant_phone || '-'} | Total Batch: <b>Rp ${b.total_batch_price.toLocaleString('id-ID')}</b></p>
+                            </div>
+                            <span class="badge badge-success text-white font-bold text-xs">${b.orders.length} Pesanan dalam 1 Batch</span>
+                        </div>
+                        <div class="space-y-2">${ordersHtml}</div>
+                    </div>
+                `;
+            });
 
             const mRes = await fetch('/api/admin/merchants');
             rawMerchants = await mRes.json();
@@ -159,8 +261,57 @@
             });
         }
 
+        async function loadRunnerReport() {
+            const container = document.getElementById('runner-report-container');
+            container.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Memuat laporan pengantaran...</p>';
+            try {
+                const res = await fetch(`/api/runner/report/${currentRunner ? currentRunner.phone_number : 'yasir'}`);
+                const rows = await res.json();
+                container.innerHTML = '';
+                if (rows.length === 0) { container.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Belum ada riwayat pengantaran selesai.</p>'; return; }
+                rows.forEach(r => {
+                    container.innerHTML += `
+                        <div class="p-3 bg-base-100 border rounded-xl space-y-1 text-xs shadow-sm">
+                            <div class="flex justify-between font-bold">
+                                <span class="text-emerald-700">Order #${r.order_id} (${r.shooper_name})</span>
+                                <span class="badge badge-success badge-xs text-white">${r.status}</span>
+                            </div>
+                            <p class="opacity-80">${r.items_summary}</p>
+                            <div class="flex justify-between font-black pt-1 border-t text-[11px]">
+                                <span>Total: Rp ${parseFloat(r.total_price).toLocaleString('id-ID')}</span>
+                                <span class="opacity-60">${new Date(r.created_at).toLocaleString('id-ID')}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) { container.innerHTML = '<p class="text-xs text-error text-center py-6">Gagal memuat laporan.</p>'; }
+        }
+
+        function openValidateModal(orderId) {
+            document.getElementById('val-order-id').value = orderId;
+            document.getElementById('validate-shooper-modal').classList.add('modal-open');
+        }
+        function closeValidateModal() { document.getElementById('validate-shooper-modal').classList.remove('modal-open'); }
+
+        async function submitShooperValidation(statusTarget) {
+            const orderId = document.getElementById('val-order-id').value;
+            await fetch('/api/runner/orders/update-status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ order_id: orderId, status: statusTarget }) });
+            if (statusTarget === 'confirmed') {
+                alert('Status diperbarui menjadi Confirmed (Riil)!');
+            } else {
+                alert('Status diperbarui menjadi Void (Fake/Dibatalkan)!');
+            }
+            closeValidateModal();
+            loadRunnerData();
+        }
+
+        async function updateOrderStatus(orderId, status) {
+            const res = await fetch('/api/runner/orders/update-status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ order_id: orderId, status }) });
+            if ((await res.json()).success) { alert('Status order diperbarui!'); loadRunnerData(); }
+        }
+
         function openRunnerMerchantModal() {
-            document.getElementById('rm-modal-title').innerText = 'Daftarkan Merchant Baru';
+            document.getElementById('rm-modal-title').innerText = 'Daftarkan Merchant';
             document.getElementById('rm-id').value = ''; document.getElementById('rm-name').value = '';
             document.getElementById('rm-phone').value = ''; document.getElementById('rm-address').value = '';
             document.getElementById('rm-location-select').value = ''; document.getElementById('rm-owner').value = '';
@@ -192,15 +343,12 @@
                 close_time: document.getElementById('rm-close').value
             };
             const res = await fetch('/api/runner/merchants', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-            if ((await res.json()).success) { alert('Merchant berhasil disimpan!'); closeRunnerMerchantModal(); loadRunnerData(); }
-        }
-
-        async function saveLocation() {
-            const name = document.getElementById('loc-name').value.trim();
-            const address = document.getElementById('loc-address').value.trim();
-            if (!name) return alert('Nama lokasi wajib!');
-            const res = await fetch('/api/runner/locations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, address, area_type: 'Instansi'}) });
-            if ((await res.json()).success) { alert('Lokasi tersimpan!'); document.getElementById('loc-name').value=''; document.getElementById('loc-address').value=''; loadLocationsMaster(); }
+            const data = await res.json();
+            if (data.success) {
+                alert('Merchant berhasil disimpan!'); closeRunnerMerchantModal(); loadRunnerData();
+            } else {
+                alert(data.error || 'Gagal menyimpan merchant.');
+            }
         }
     </script>
 </body>

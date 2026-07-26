@@ -30,18 +30,18 @@
             </div>
         </header>
 
+        <!-- 3 SHEET UTAMA SESUAI PERMINTAAN -->
         <div class="bg-base-100 border-b px-6 pt-3 shadow-sm">
             <div class="tabs tabs-lifted max-w-6xl mx-auto flex-wrap">
-                <a role="tab" onclick="switchTab('summary')" id="tab-summary" class="tab tab-active font-bold text-xs">📊 Summary & Profit</a>
-                <a role="tab" onclick="switchTab('merchant')" id="tab-merchant" class="tab font-bold text-xs">🏪 Merchant & Menu</a>
-                <a role="tab" onclick="switchTab('master')" id="tab-master" class="tab font-bold text-xs">📋 Master Data & Edit</a>
-                <a role="tab" onclick="switchTab('logo')" id="tab-logo" class="tab font-bold text-xs">🖼️ Logo Struk</a>
+                <a role="tab" onclick="switchTab('summary')" id="tab-summary" class="tab tab-active font-bold text-xs">📊 1. Dashboard & Profit</a>
+                <a role="tab" onclick="switchTab('merchant')" id="tab-merchant" class="tab font-bold text-xs">🏪 2. Manajemen Merchant & Menu</a>
+                <a role="tab" onclick="switchTab('master')" id="tab-master" class="tab font-bold text-xs">📋 3. Master Data & Konfigurasi</a>
             </div>
         </div>
 
         <main class="max-w-6xl mx-auto w-full p-6 flex-1 space-y-6">
 
-            <!-- TAB 1: SUMMARY -->
+            <!-- SHEET 1: DASHBOARD & PROFIT -->
             <div id="sheet-summary" class="admin-sheet space-y-6">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="card bg-base-100 p-4 shadow border"><p class="text-xs opacity-70 font-bold">Total Orders (GMV)</p><h2 class="text-xl font-black text-emerald-700" id="stat-gmv">Rp 0</h2></div>
@@ -60,7 +60,7 @@
                 </div>
             </div>
 
-            <!-- TAB 2: MERCHANT & MENU -->
+            <!-- SHEET 2: MANAJEMEN MERCHANT & MENU -->
             <div id="sheet-merchant" class="admin-sheet space-y-6 hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="card bg-base-100 p-5 shadow border space-y-3">
@@ -69,7 +69,7 @@
                             <label class="font-bold">Nama Warung</label><input type="text" id="m-name" class="input input-bordered input-sm w-full">
                             <label class="font-bold">No WA Warung</label><input type="tel" id="m-phone" class="input input-bordered input-sm w-full">
                             <label class="font-bold">Alamat Lengkap</label><input type="text" id="m-address" class="input input-bordered input-sm w-full">
-                            <label class="font-bold">Zonasi Lokasi (Dari Master Location)</label>
+                            <label class="font-bold">Zonasi Lokasi (Master Location)</label>
                             <select id="m-location-select" class="select select-bordered select-sm w-full"><option value="">Pilih Lokasi</option></select>
                             <label class="font-bold">Nama Pemilik</label><input type="text" id="m-owner" class="input input-bordered input-sm w-full">
                             <label class="font-bold">Titik Map / Link Google Maps</label><input type="text" id="m-map" placeholder="https://..." class="input input-bordered input-sm w-full">
@@ -112,8 +112,39 @@
                 </div>
             </div>
 
-            <!-- TAB 3: MASTER DATA & EDIT -->
+            <!-- SHEET 3: MASTER DATA & KONFIGURASI (4 ITEM + SEE MORE) -->
             <div id="sheet-master" class="admin-sheet space-y-6 hidden">
+                <!-- Master Batch Waktu -->
+                <div class="card bg-base-100 p-5 shadow border space-y-3">
+                    <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">⏰ Master Batch Waktu Pengiriman</h3>
+                    <div class="form-control space-y-2 text-xs max-w-md">
+                        <input type="hidden" id="batch-id">
+                        <input type="text" id="batch-name" placeholder="Nama Batch (Cth: Batch Pagi)" class="input input-bordered input-sm w-full">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="time" id="batch-start" class="input input-bordered input-sm w-full">
+                            <input type="time" id="batch-cutoff" class="input input-bordered input-sm w-full">
+                        </div>
+                        <button onclick="saveBatchAdmin()" class="btn btn-xs btn-success text-white font-bold w-full">Simpan Batch Waktu</button>
+                    </div>
+                    <div class="overflow-x-auto pt-2">
+                        <table class="table table-zebra table-xs"><thead><tr><th>Nama Batch</th><th>Cut-off</th><th>Est. Selesai</th><th>Aksi</th></tr></thead><tbody id="table-batch-master"></tbody></table>
+                    </div>
+                </div>
+
+                <!-- Master Tarif & Sistem -->
+                <div class="card bg-base-100 p-5 shadow border space-y-3">
+                    <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">💰 Master Tarif & Konfigurasi Sistem</h3>
+                    <div class="form-control space-y-2 text-xs max-w-md">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="font-bold">Biaya Layanan</label><input type="number" id="cfg-service-fee" class="input input-bordered input-sm w-full"></div>
+                            <div><label class="font-bold">Biaya Zonasi (0-2km)</label><input type="number" id="cfg-base-zone-fee" class="input input-bordered input-sm w-full"></div>
+                        </div>
+                        <div><label class="font-bold">Tambahan Luar Zona (&gt;2km per KM)</label><input type="number" id="cfg-fee-per-km" class="input input-bordered input-sm w-full"></div>
+                        <button onclick="saveTariffConfig()" class="btn btn-xs btn-success text-white font-bold w-full">Simpan Tarif</button>
+                    </div>
+                </div>
+
+                <!-- Master Warung -->
                 <div class="card bg-base-100 p-5 shadow border space-y-3">
                     <div class="flex justify-between items-center border-b pb-2">
                         <h3 class="font-bold text-sm text-emerald-700">📋 Master Warung / Merchant</h3>
@@ -122,6 +153,7 @@
                     <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>ID</th><th>Nama Warung</th><th>No WA</th><th>Alamat</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="table-merchant-master"></tbody></table></div>
                 </div>
 
+                <!-- Master Menu -->
                 <div class="card bg-base-100 p-5 shadow border space-y-3">
                     <div class="flex justify-between items-center border-b pb-2">
                         <h3 class="font-bold text-sm text-emerald-700">📋 Master Menu Produk</h3>
@@ -130,25 +162,21 @@
                     <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>Menu</th><th>Warung</th><th>Jual</th><th>Status Publikasi</th><th>Aksi</th></tr></thead><tbody id="table-menu-master"></tbody></table></div>
                 </div>
 
+                <!-- Master Pengguna -->
                 <div class="card bg-base-100 p-5 shadow border space-y-3">
                     <div class="flex justify-between items-center border-b pb-2">
-                        <h3 class="font-bold text-sm text-emerald-700">📋 Master Pengguna</h3>
+                        <h3 class="font-bold text-sm text-emerald-700">📋 Master Pengguna & Hak Akses (Role)</h3>
                         <button onclick="toggleExpandMaster('user')" id="btn-see-user" class="btn btn-xs btn-outline btn-success font-bold">See More</button>
                     </div>
                     <div class="overflow-x-auto"><table class="table table-zebra table-xs"><thead><tr><th>Nama</th><th>No WA</th><th>Role</th><th>Aksi</th></tr></thead><tbody id="table-user-master"></tbody></table></div>
                 </div>
-            </div>
 
-            <!-- TAB 4: LOGO -->
-            <div id="sheet-logo" class="admin-sheet space-y-6 hidden">
-                <div class="card bg-base-100 p-6 shadow border space-y-4 max-w-xl mx-auto">
+                <!-- Upload Logo Struk -->
+                <div class="card bg-base-100 p-5 shadow border space-y-3 max-w-md">
                     <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">🖼️ Upload Logo Struk Thermal</h3>
-                    <div class="flex items-center gap-6">
-                        <div id="logo-preview-box" class="w-28 h-28 border rounded-2xl flex items-center justify-center bg-base-200 overflow-hidden"><span class="text-xs opacity-50">No Logo</span></div>
-                        <div class="space-y-3 flex-1">
-                            <input type="file" id="logo-file-input" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-sm w-full">
-                            <button onclick="uploadLogoStore()" class="btn btn-sm btn-success text-white font-bold w-full">Upload Logo</button>
-                        </div>
+                    <div class="form-control space-y-2 text-xs">
+                        <input type="file" id="logo-file-input" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full">
+                        <button onclick="uploadLogoStore()" class="btn btn-xs btn-success text-white font-bold w-full">Upload Logo</button>
                     </div>
                 </div>
             </div>
@@ -169,8 +197,8 @@
     </div>
 
     <script>
-        let rawMerchants = [], rawMenus = [], rawUsers = [], globalLocations = [];
-        let expandState = { merchant: false, menu: false, user: false };
+        let rawMerchants = [], rawMenus = [], rawUsers = [], rawBatches = [], globalLocations = [];
+        let expandState = { merchant: false, menu: false, user: false, batch: false };
         let activeEditType = '', activeEditId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -179,8 +207,66 @@
                 document.getElementById('admin-main-content').classList.remove('hidden');
                 loadLocationsMaster();
                 loadAllAdminData();
+                loadSettingsData();
+                loadAdminBatches();
             }
         });
+
+        async function loadAdminBatches() {
+            try {
+                const res = await fetch('/api/batches');
+                rawBatches = await res.json();
+                renderMasterTable('batch');
+            } catch(e) {}
+        }
+
+        async function saveBatchAdmin() {
+            const id = document.getElementById('batch-id').value;
+            const batch_name = document.getElementById('batch-name').value.trim();
+            const start_time = document.getElementById('batch-start').value;
+            const cutoff_time = document.getElementById('batch-cutoff').value;
+
+            if (!batch_name || !cutoff_time) return alert('Nama dan jam cut-off wajib diisi!');
+
+            const res = await fetch('/api/admin/batches', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ id: id ? id : null, batch_name, start_time, cutoff_time, delivery_estimation_minutes: 30 })
+            });
+            if ((await res.json()).success) {
+                alert('Batch berhasil disimpan!');
+                document.getElementById('batch-id').value = '';
+                document.getElementById('batch-name').value = '';
+                loadAdminBatches();
+            }
+        }
+
+        function editBatch(b) {
+            document.getElementById('batch-id').value = b.id;
+            document.getElementById('batch-name').value = b.batch_name;
+            document.getElementById('batch-start').value = b.start_time ? b.start_time.substring(0,5) : '';
+            document.getElementById('batch-cutoff').value = b.cutoff_time ? b.cutoff_time.substring(0,5) : '';
+        }
+
+        async function loadSettingsData() {
+            try {
+                const res = await fetch('/api/settings');
+                const cfg = await res.json();
+                document.getElementById('cfg-service-fee').value = cfg.service_fee || '2000';
+                document.getElementById('cfg-base-zone-fee').value = cfg.base_zone_fee || '3000';
+                document.getElementById('cfg-fee-per-km').value = cfg.fee_per_km || '2000';
+            } catch(e) {}
+        }
+
+        async function saveTariffConfig() {
+            const payload = {
+                service_fee: document.getElementById('cfg-service-fee').value,
+                base_zone_fee: document.getElementById('cfg-base-zone-fee').value,
+                fee_per_km: document.getElementById('cfg-fee-per-km').value
+            };
+            const res = await fetch('/api/admin/settings/batch', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if ((await res.json()).success) { alert('Master Tarif & Konfigurasi berhasil disimpan!'); }
+        }
 
         async function loadLocationsMaster() {
             const res = await fetch('/api/locations');
@@ -233,13 +319,16 @@
             const uRes = await fetch('/api/admin/users-list');
             rawUsers = await uRes.json();
             renderMasterTable('user');
+
+            loadAdminBatches();
         }
 
         function renderMasterTable(type) {
-            let data = type === 'merchant' ? rawMerchants : (type === 'menu' ? rawMenus : rawUsers);
-            let tbodyId = `table-${type}-master`;
+            let data = type === 'merchant' ? rawMerchants : (type === 'menu' ? rawMenus : (type === 'user' ? rawUsers : rawBatches));
+            let tbodyId = type === 'batch' ? 'table-batch-master' : `table-${type}-master`;
             let isExpanded = expandState[type];
             const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
             tbody.innerHTML = '';
             const displayData = isExpanded ? data : data.slice(0, 4);
 
@@ -254,12 +343,14 @@
                     if (item.publish_pos) statusTxt += ' | 💻 POS';
                     tbody.innerHTML += `<tr><td class="font-bold">${item.name}</td><td>${item.merchant_name}</td><td>Rp ${parseFloat(item.price).toLocaleString('id-ID')}</td><td>${statusTxt}</td><td><button onclick='openEditModal("menu", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
                 } else if (type === 'user') {
-                    tbody.innerHTML += `<tr><td class="font-bold">${item.name}</td><td>${item.phone_number}</td><td>${item.role}</td><td><button onclick='openEditModal("user", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
+                    tbody.innerHTML += `<tr><td class="font-bold">${item.name}</td><td>${item.phone_number}</td><td><span class="badge badge-success badge-xs text-white font-bold">${item.role}</span></td><td><button onclick='openEditModal("user", ${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
+                } else if (type === 'batch') {
+                    tbody.innerHTML += `<tr><td class="font-bold">${item.batch_name}</td><td>${item.cutoff_time ? item.cutoff_time.substring(0,5) : '-'}</td><td>${item.delivery_estimation_minutes || 30} mnt</td><td><button onclick='editBatch(${JSON.stringify(item)})' class="btn btn-xs btn-outline btn-success">Edit</button></td></tr>`;
                 }
             });
 
             const btn = document.getElementById(`btn-see-${type}`);
-            if (data.length > 4) { btn.style.display = 'inline-block'; btn.innerText = isExpanded ? 'Tutup' : `See More (${data.length - 4})`; } else { btn.style.display = 'none'; }
+            if (btn && data.length > 4) { btn.style.display = 'inline-block'; btn.innerText = isExpanded ? 'Tutup' : `See More (${data.length - 4})`; } else if (btn) { btn.style.display = 'none'; }
         }
 
         function toggleExpandMaster(type) { expandState[type] = !expandState[type]; renderMasterTable(type); }
@@ -303,8 +394,15 @@
                 `;
             } else if (type === 'user') {
                 form.innerHTML = `
-                    <label class="font-bold">Nama</label><input type="text" id="edit-u-name" value="${item.name || ''}" class="input input-bordered input-sm w-full">
-                    <label class="font-bold">No WA</label><input type="text" id="edit-u-phone" value="${item.phone_number || ''}" class="input input-bordered input-sm w-full">
+                    <label class="font-bold">Nama Pengguna</label><input type="text" id="edit-u-name" value="${item.name || ''}" class="input input-bordered input-sm w-full">
+                    <label class="font-bold">Nomor WA</label><input type="text" id="edit-u-phone" value="${item.phone_number || ''}" class="input input-bordered input-sm w-full">
+                    <label class="font-bold">Role / Hak Akses</label>
+                    <select id="edit-u-role" class="select select-bordered select-sm w-full">
+                        <option value="shooper" ${item.role === 'shooper' ? 'selected':''}>Shooper (Pemesan)</option>
+                        <option value="runner" ${item.role === 'runner' ? 'selected':''}>Runner (Kurir/Zonasi)</option>
+                        <option value="merchant" ${item.role === 'merchant' ? 'selected':''}>Merchant (Kasir Warung)</option>
+                        <option value="admin" ${item.role === 'admin' ? 'selected':''}>Admin (Full Control)</option>
+                    </select>
                 `;
             }
             document.getElementById('edit-modal').classList.add('modal-open');
@@ -351,10 +449,11 @@
                     id: activeEditId,
                     name: document.getElementById('edit-u-name').value,
                     phone_number: document.getElementById('edit-u-phone').value,
-                    department_location: 'Kantor Kecamatan', role: 'shooper'
+                    role: document.getElementById('edit-u-role').value,
+                    department_location: 'Kantor Kecamatan'
                 };
                 const res = await fetch('/api/admin/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                if ((await res.json()).success) { alert('Berhasil diperbarui!'); closeEditModal(); loadAllAdminData(); }
+                if ((await res.json()).success) { alert('Hak akses pengguna diperbarui!'); closeEditModal(); loadAllAdminData(); }
             }
         }
 

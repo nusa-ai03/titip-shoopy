@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Order E-Menu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="min-h-screen bg-base-200 text-base-content flex flex-col justify-between">
+
+    <header class="navbar bg-base-100 shadow px-4 sticky top-0 z-40 flex justify-between">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold">🍽️</div>
+            <div>
+                <h1 class="text-xs font-black text-emerald-700" id="store-title">Self-Order E-Menu</h1>
+                <p class="text-[10px] opacity-70" id="table-label">Meja -</p>
+            </div>
+        </div>
+        <div><button onclick="openCartModal()" class="btn btn-sm btn-success text-white font-bold text-xs">🛒 Keranjang (<span id="cart-count">0</span>)</button></div>
+    </header>
+
+    <main class="max-w-md mx-auto w-full p-4 flex-1 space-y-4">
+        <div class="form-control bg-base-100 p-3 rounded-2xl shadow-sm border space-y-2">
+            <label class="text-xs font-bold">Nama Pemesan / Pengunjung</label>
+            <input type="text" id="customer-name" placeholder="Masukkan Nama Anda" class="input input-bordered input-sm w-full text-xs">
+        </div>
+
+        <div>
+            <h3 class="font-black text-xs text-emerald-800 uppercase mb-2">Daftar Menu</h3>
+            <div id="self-menu-grid" class="space-y-3"><p class="text-xs text-center py-10 opacity-60">Memuat menu...</p></div>
+        </div>
+    </main>
+
+    <!-- MODAL KERANJANG -->
+    <div id="cart-modal" class="modal">
+        <div class="modal-box max-w-sm space-y-3 text-xs">
+            <h3 class="font-bold text-sm text-emerald-700">🛒 Konfirmasi Pesanan Meja</h3>
+            <div id="cart-items-summary" class="space-y-1 max-h-40 overflow-y-auto divide-y"></div>
+            <div class="flex justify-between font-black text-sm border-t pt-2">
+                <span>Total Tagihan:</span><span id="cart-grand-total" class="text-emerald-700">Rp 0</span>
+            </div>
+            <div class="modal-action flex gap-2">
+                <button onclick="closeCartModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
+                <button onclick="submitSelfOrder()" class="btn btn-sm btn-success text-white font-bold flex-1">Kirim Pesanan (Billing Open)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL STATUS PESANAN DENGAN TOMBOL CLOSE -->
+    <div id="status-modal" class="modal">
+        <div class="modal-box max-w-sm space-y-4 text-xs text-center">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base text-emerald-700">📋 Status Pesanan Meja</h3>
+                <button onclick="closeStatusModal()" class="btn btn-xs btn-circle btn-ghost font-bold text-sm">✕</button>
+            </div>
+            <div class="py-4 bg-base-200 rounded-2xl space-y-2 border">
+                <p class="text-xs opacity-70">No. Order: <b id="st-order-id"># -</b></p>
+                <div id="st-badge-container">
+                    <span class="badge badge-warning text-white font-bold text-sm p-3" id="st-badge-text">Billing Open</span>
+                </div>
+                <p class="text-[11px] opacity-80 pt-2" id="st-desc">Pesanan Anda telah masuk ke kasir (Billing Open). Mohon tunggu atau lakukan pembayaran ke kasir jika sudah selesai.</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeStatusModal()" class="btn btn-sm btn-ghost flex-1">Tutup (Close)</button>
+                <button onclick="location.reload()" class="btn btn-sm btn-success text-white font-bold flex-1">Pesan Lagi</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let merchantId = 1, tableNumber = '1', globalMenus = [], cart = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            merchantId = urlParams.get('merchant') || 1;
+            tableNumber = urlParams.get('table') || '1';
+            document.getElementById('table-label').innerText = `Meja ${tableNumber}`;
+            loadSelfMenus();
+        });
+
+        async function loadSelfMenus() {
+            try {
+                const res = await fetch('/api/merchants/active');
+                const merchants = await res.json();
+                const m = merchants.find(item => item.id == merchantId) || merchants[0];
+                if (m) {
+                    document.getElementById('store-title').innerText = m.name;
+                    globalMenus = m.menus || [];
+                    renderSelfMenus();
+                }
+            } catch(e) {
+                document.getElementById('self-menu-grid').innerHTML = '<p class="text-xs text-error text-center">Gagal memuat menu.</p>';
+            }
+        }
+
+        function renderSelfMenus() {
+            const grid = document.getElementById('self-menu-grid');
+            if (globalMenus.length === 0) { grid.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Tidak ada menu tersedia.</p>'; return; }
+            grid.innerHTML = '';
+            globalMenus.forEach(m => {
+                grid.innerHTML += `
+                    <div class="card bg-base-100 border shadow-sm p-3 flex flex-row items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <img src="${m.image_url}" class="w-14 h-14 object-cover rounded-xl">
+                            <div>
+                                <h4 class="font-black text-xs">${m.name}</h4>
+                                <p class="font-bold text-xs text-emerald-700">Rp ${m.price.toLocaleString('id-ID')}</p>
+                            </div>
+                        </div>
+                        <button onclick="addToCart(${m.id}, '${m.name}', ${m.price})" class="btn btn-xs btn-success text-white font-bold">+ Tambah</button>
+                    </div>
+                `;
+            });
+        }
+
+        function addToCart(id, name, price) {
+            const ex = cart.find(i => i.menu_id === id);
+            if (ex) ex.quantity += 1; else cart.push({ menu_id: id, name, price, quantity: 1 });
+            updateCartCount();
+        }
+
+        function updateCartCount() {
+            let count = 0; cart.forEach(i => count += i.quantity);
+            document.getElementById('cart-count').innerText = count;
+        }
+
+        function openCartModal() {
+            if (cart.length === 0) return alert('Keranjang masih kosong!');
+            const container = document.getElementById('cart-items-summary');
+            container.innerHTML = '';
+            let gt = 0;
+            cart.forEach(i => {
+                let sub = i.price * i.quantity; gt += sub;
+                container.innerHTML += `<div class="py-1 flex justify-between"><span>${i.quantity}x ${i.name}</span><span class="font-bold">Rp ${sub.toLocaleString('id-ID')}</span></div>`;
+            });
+            document.getElementById('cart-grand-total').innerText = `Rp ${gt.toLocaleString('id-ID')}`;
+            document.getElementById('cart-modal').classList.add('modal-open');
+        }
+        function closeCartModal() { document.getElementById('cart-modal').classList.remove('modal-open'); }
+
+        async function submitSelfOrder() {
+            const name = document.getElementById('customer-name').value.trim();
+            if (!name) return alert('Mohon masukkan Nama Pemesan terlebih dahulu!');
+
+            const payload = { merchant_id: merchantId, table_number: tableNumber, customer_name: name, items: cart };
+            const res = await fetch('/api/self-order', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (data.success) {
+                closeCartModal();
+                showStatusTracker(data.order_id);
+            } else {
+                alert(data.error);
+            }
+        }
+
+        function showStatusTracker(orderId) {
+            document.getElementById('st-order-id').innerText = `#${orderId}`;
+            document.getElementById('status-modal').classList.add('modal-open');
+            pollOrderStatus(orderId);
+        }
+
+        function closeStatusModal() {
+            document.getElementById('status-modal').classList.remove('modal-open');
+        }
+
+        function pollOrderStatus(orderId) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/self-order/status/${orderId}`);
+                    const data = await res.json();
+                    const badgeContainer = document.getElementById('st-badge-container');
+                    const descEl = document.getElementById('st-desc');
+
+                    if (data.status === 'completed' || data.status === 'paid') {
+                        badgeContainer.innerHTML = `<span class="badge badge-success text-white font-bold text-base p-4">PAID (Lunas)</span>`;
+                        descEl.innerText = `Pembayaran telah diterima oleh kasir. Terima kasih telah bersantap di sini! 🙏✨`;
+                        clearInterval(interval);
+                    } else {
+                        badgeContainer.innerHTML = `<span class="badge badge-warning text-white font-bold text-base p-4">Billing Open</span>`;
+                        descEl.innerText = `Pesanan aktif di meja ${tableNumber}. Menunggu pelunasan/pembayaran di kasir.`;
+                    }
+                } catch(e) {}
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

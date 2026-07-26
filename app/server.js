@@ -25,6 +25,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/merchant', (req, res) => res.sendFile(path.join(__dirname, 'public', 'merchant.html')));
 app.get('/runner', (req, res) => res.sendFile(path.join(__dirname, 'public', 'runner.html')));
+app.get('/order', (req, res) => res.sendFile(path.join(__dirname, 'public', 'self_order.html')));
 
 function calculateDistanceKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return 1.0;
@@ -532,7 +533,69 @@ app.post('/api/admin/users', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================== API MERCHANT DASHBOARD (SAFE QUERY TANPA ERROR 500) ====================
+// ==================== API SELF-ORDER & TABLES ====================
+app.get('/api/merchant/tables/:merchantId', async (req, res) => {
+  try {
+    const { merchantId } = req.params;
+    const cleanId = merchantId.split(':')[0];
+    const resTables = await pool.query('SELECT * FROM merchant_tables WHERE merchant_id = $1 ORDER BY id ASC', [cleanId]);
+    res.json(resTables.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/self-order', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { merchant_id, table_number, customer_name, items } = req.body;
+    if (!merchant_id || !table_number || !items || items.length === 0) {
+      return res.status(400).json({ error: 'Data pesanan tidak lengkap' });
+    }
+
+    await client.query('BEGIN');
+    let cleanMerchantId = merchant_id.toString().split(':')[0];
+    let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [`SELF_ORDER_${cleanMerchantId}_${table_number}`]);
+    let customerId;
+    if (customerRes.rows.length === 0) {
+      const newCust = await client.query(
+        `INSERT INTO users (name, phone_number, role, department_location, is_approved) VALUES ($1, $2, 'shooper', $3, TRUE) RETURNING id`,
+        [customer_name || `Tamu Meja ${table_number}`, `SELF_ORDER_${cleanMerchantId}_${table_number}`, `Meja ${table_number}`]
+      );
+      customerId = newCust.rows[0].id;
+    } else {
+      customerId = customerRes.rows[0].id;
+    }
+
+    let subtotal = 0; items.forEach(i => { subtotal += parseFloat(i.price) * i.quantity; });
+    const orderRes = await client.query(
+      `INSERT INTO orders (shooper_id, status, total_price, delivery_fee, service_fee, payment_method, is_paid, table_number, customer_name) VALUES ($1, 'billing_open', $2, 0, 0, 'CASH', FALSE, $3, $4) RETURNING id`,
+      [customerId, subtotal, table_number, customer_name || `Tamu Meja ${table_number}`]
+    );
+    const orderId = orderRes.rows[0].id;
+
+    for (const i of items) {
+      await client.query(
+        `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
+        [orderId, i.menu_id, i.quantity, i.price]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, order_id: orderId });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
+
+app.get('/api/self-order/status/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const resOrder = await pool.query('SELECT id, status, total_price, table_number, customer_name FROM orders WHERE id = $1', [orderId]);
+    if (resOrder.rows.length === 0) return res.status(404).json({ error: 'Pesanan tidak ditemukan' });
+    res.json(resOrder.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==================== API MERCHANT DASHBOARD & REPORT (ROBUST) ====================
 app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
   try {
     const { merchantId } = req.params;
@@ -542,15 +605,12 @@ app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
     const merchant = mRes.rows[0];
     const menuRes = await pool.query('SELECT * FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [cleanId]);
     
-    // Kueri aman: Mengambil riwayat POS walk-in berdasarkan merchant_id via order_items & menus tanpa error
     const orderRes = await pool.query(`
-      SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'CASH') AS payment_method, o.created_at, u.name AS shooper_name, u.phone_number, u.department_location,
+      SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'CASH') AS payment_method, o.created_at, u.name AS shooper_name, u.phone_number, u.department_location, o.table_number, o.customer_name,
              (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
       FROM orders o 
       JOIN users u ON o.shooper_id = u.id 
-      JOIN order_items oi ON oi.order_id = o.id 
-      JOIN menus mn ON oi.menu_id = mn.id
-      WHERE mn.merchant_id = $1 AND u.phone_number LIKE 'POS_WALK_IN_%'
+      WHERE (u.phone_number = 'POS_WALK_IN_' || $1 OR u.phone_number LIKE 'SELF_ORDER_' || $1 || '_%')
       ORDER BY o.id DESC LIMIT 30
     `, [cleanId]);
 
@@ -576,9 +636,7 @@ app.get('/api/merchant/report/:merchantId', async (req, res) => {
              (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
       FROM orders o 
       JOIN users u ON o.shooper_id = u.id 
-      JOIN order_items oi ON oi.order_id = o.id 
-      JOIN menus mn ON oi.menu_id = mn.id
-      WHERE mn.merchant_id = $1
+      WHERE (u.phone_number = 'POS_WALK_IN_' || $1 OR u.phone_number LIKE 'SELF_ORDER_' || $1 || '_%')
       ORDER BY o.id DESC LIMIT 50
     `, [cleanId]);
     res.json(reportRes.rows);
@@ -601,36 +659,56 @@ app.get('/api/merchant/order-items/:orderId', async (req, res) => {
 app.post('/api/merchant/pos-checkout', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { merchant_id, items, payment_method } = req.body;
+    const { merchant_id, items, payment_method, order_id, discount_type, discount_value } = req.body;
     if (!merchant_id || !items || items.length === 0) return res.status(400).json({ error: 'Keranjang kosong' });
 
     await client.query('BEGIN');
     let cleanMerchantId = merchant_id.toString().split(':')[0];
-    let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [`POS_WALK_IN_${cleanMerchantId}`]);
-    let customerId;
-    if (customerRes.rows.length === 0) {
-      const newCust = await client.query(
-        `INSERT INTO users (name, phone_number, role, department_location, is_approved) VALUES ($1, $2, 'shooper', 'POS Offline Warung', TRUE) RETURNING id`,
-        [`Tamu Kasir`, `POS_WALK_IN_${cleanMerchantId}`]
-      );
-      customerId = newCust.rows[0].id;
-    } else {
-      customerId = customerRes.rows[0].id;
-    }
 
     let subtotal = 0; items.forEach(i => { subtotal += parseFloat(i.price) * i.quantity; });
-    const orderRes = await client.query(
-      `INSERT INTO orders (shooper_id, status, total_price, delivery_fee, service_fee, payment_method, is_paid) VALUES ($1, 'completed', $2, 0, 0, $3, TRUE) RETURNING id`,
-      [customerId, subtotal, payment_method || 'CASH']
-    );
-    const orderId = orderRes.rows[0].id;
-
-    for (const i of items) {
-      await client.query(
-        `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
-        [orderId, i.menu_id, i.quantity, i.price]
-      );
+    let finalTotal = subtotal;
+    if (discount_type === 'percent') {
+      let dVal = parseFloat(discount_value) || 0;
+      finalTotal = subtotal - (subtotal * (dVal / 100));
+    } else if (discount_type === 'nominal') {
+      let dVal = parseFloat(discount_value) || 0;
+      finalTotal = subtotal - dVal;
     }
+    if (finalTotal < 0) finalTotal = 0;
+
+    let orderId = order_id;
+    if (orderId) {
+      await client.query(
+        `UPDATE orders SET status = 'completed', payment_method = $1, total_price = $2, is_paid = TRUE WHERE id = $3`,
+        [payment_method || 'CASH', finalTotal, orderId]
+      );
+    } else {
+      let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [`POS_WALK_IN_${cleanMerchantId}`]);
+      let customerId;
+      if (customerRes.rows.length === 0) {
+        const newCust = await client.query(
+          `INSERT INTO users (name, phone_number, role, department_location, is_approved) VALUES ($1, $2, 'shooper', 'POS Offline Warung', TRUE) RETURNING id`,
+          [`Tamu Kasir`, `POS_WALK_IN_${cleanMerchantId}`]
+        );
+        customerId = newCust.rows[0].id;
+      } else {
+        customerId = customerRes.rows[0].id;
+      }
+
+      const orderRes = await client.query(
+        `INSERT INTO orders (shooper_id, status, total_price, delivery_fee, service_fee, payment_method, is_paid) VALUES ($1, 'completed', $2, 0, 0, $3, TRUE) RETURNING id`,
+        [customerId, finalTotal, payment_method || 'CASH']
+      );
+      orderId = orderRes.rows[0].id;
+
+      for (const i of items) {
+        await client.query(
+          `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
+          [orderId, i.menu_id, i.quantity, i.price]
+        );
+      }
+    }
+
     await client.query('COMMIT');
     res.json({ success: true, order_id: orderId });
   } catch (err) {
@@ -643,7 +721,8 @@ app.post('/api/merchant/orders/update-status', async (req, res) => {
   try {
     const { order_id, status } = req.body;
     if (!order_id || !status) return res.status(400).json({ error: 'Data tidak lengkap' });
-    await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [status, order_id]);
+    let isPaidVal = status === 'completed' ? true : false;
+    await pool.query('UPDATE orders SET status = $1, is_paid = $2 WHERE id = $3', [status, isPaidVal, order_id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -653,7 +732,7 @@ app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
     const orderRes = await pool.query(`
-      SELECT o.id, o.total_price, COALESCE(o.payment_method, 'COD') AS payment_method, o.created_at,
+      SELECT o.id, o.total_price, COALESCE(o.payment_method, 'COD') AS payment_method, o.created_at, o.table_number, o.customer_name,
              u.name AS shooper_name, u.department_location,
              m.name AS merchant_name, m.phone_number AS merchant_phone
       FROM orders o
@@ -678,7 +757,7 @@ app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
     let logoPath = logoRes.rows.length > 0 && logoRes.rows[0].value ? path.join(__dirname, 'public', logoRes.rows[0].value) : path.join(__dirname, 'public', 'images', 'logo_dummy.png');
 
     const itemCount = itemsRes.rows.length;
-    const dynamicHeight = 195 + (itemCount * 22);
+    const dynamicHeight = 210 + (itemCount * 22);
     const canvasWidth = 226;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -702,7 +781,11 @@ app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
 
     doc.fontSize(7).font('Helvetica-Bold').text(`No. Struk : #${order.id}`, 10, doc.y, { width: 206, align: 'left' });
     doc.font('Helvetica').text(`Tgl       : ${new Date(order.created_at).toLocaleString('id-ID')}`, 10, doc.y, { width: 206, align: 'left' });
-    doc.text(`Pelanggan : ${order.shooper_name}`, 10, doc.y, { width: 206, align: 'left' });
+    if (order.table_number) {
+      doc.text(`Meja      : ${order.table_number} (${order.customer_name || 'Tamu'})`, 10, doc.y, { width: 206, align: 'left' });
+    } else {
+      doc.text(`Pelanggan : ${order.shooper_name}`, 10, doc.y, { width: 206, align: 'left' });
+    }
     doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
 
     itemsRes.rows.forEach(item => {
@@ -739,7 +822,7 @@ app.get('/api/merchants/active', async (req, res) => {
              COALESCE(m.is_open, TRUE) AS is_open, COALESCE(m.open_time::text, '07:00:00') AS open_time, COALESCE(m.close_time::text, '17:00:00') AS close_time,
              mn.id AS menu_id, mn.name AS menu_name, mn.price AS original_price, COALESCE(mn.is_available, TRUE) AS is_available, mn.image_url
       FROM merchants m LEFT JOIN menus mn ON m.id = mn.merchant_id
-      WHERE m.is_active = TRUE AND mn.publish_web = TRUE AND mn.is_available = TRUE ORDER BY m.id, mn.id
+      WHERE m.is_active = TRUE AND mn.is_available = TRUE ORDER BY m.id, mn.id
     `;
     const result = await pool.query(query);
     const merchants = {};
@@ -756,114 +839,6 @@ app.get('/api/merchants/active', async (req, res) => {
     });
     res.json(Object.values(merchants));
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/orders', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const { name, phone, location, notes, items, tip = 0, reward_used = 0, batch_id } = req.body;
-    let formattedPhone = phone.trim();
-    if (formattedPhone.startsWith('0')) formattedPhone = '62' + formattedPhone.substring(1);
-
-    await client.query('BEGIN');
-    let userRes = await client.query('SELECT id, reward_balance FROM users WHERE phone_number = $1', [formattedPhone]);
-    let userId, currentReward = 0;
-    if (userRes.rows.length === 0) {
-      const newUser = await client.query('INSERT INTO users (name, phone_number, role, department_location, is_approved) VALUES ($1, $2, \'shooper\', $3, TRUE) RETURNING id, reward_balance', [name, formattedPhone, location || 'Kantor Kecamatan']);
-      userId = newUser.rows[0].id;
-      currentReward = parseFloat(newUser.rows[0].reward_balance || 0);
-    } else {
-      userId = userRes.rows[0].id;
-      currentReward = parseFloat(userRes.rows[0].reward_balance || 0);
-      await client.query('UPDATE users SET department_location = $1 WHERE id = $2', [location, userId]);
-    }
-
-    const settingsRes = await client.query('SELECT key, value FROM settings');
-    const cfg = {};
-    settingsRes.rows.forEach(r => { cfg[r.key] = r.value; });
-
-    const baseZoneFee = parseFloat(cfg.base_zone_fee || '3000');
-    const feePerKm = parseFloat(cfg.fee_per_km || '2000');
-    const serviceFee = parseFloat(cfg.service_fee || '2000');
-
-    let deliveryFee = baseZoneFee;
-    if (items && items.length > 0) {
-      const firstMenuRes = await client.query('SELECT merchant_id FROM menus WHERE id = $1', [items[0].menu_id]);
-      if (firstMenuRes.rows.length > 0) {
-        const merchantId = firstMenuRes.rows[0].merchant_id;
-        const merchantRes = await client.query('SELECT location_name FROM merchants WHERE id = $1', [merchantId]);
-        if (merchantRes.rows.length > 0) {
-          const mLocName = merchantRes.rows[0].location_name;
-          const mLocRes = await client.query('SELECT lat, lng FROM locations WHERE name = $1', [mLocName]);
-          const dLocRes = await client.query('SELECT lat, lng FROM locations WHERE name = $1', [location]);
-          
-          if (mLocRes.rows.length > 0 && dLocRes.rows.length > 0) {
-            const dist = calculateDistanceKm(mLocRes.rows[0].lat, mLocRes.rows[0].lng, dLocRes.rows[0].lat, dLocRes.rows[0].lng);
-            if (dist > 2.0) {
-              deliveryFee = baseZoneFee + Math.round((dist - 2.0) * feePerKm);
-            }
-          }
-        }
-      }
-    }
-
-    let subtotal = 0; items.forEach(i => { subtotal += parseFloat(i.price) * i.quantity; });
-    const tipAmount = parseFloat(tip) || 0;
-    
-    let rewardDeduction = parseFloat(reward_used) || 0;
-    if (rewardDeduction > currentReward) {
-      return res.status(400).json({ error: 'Saldo reward tidak mencukupi untuk diklaim!' });
-    }
-
-    if (rewardDeduction > 0) {
-      await client.query('UPDATE users SET reward_balance = reward_balance - $1 WHERE id = $2', [rewardDeduction, userId]);
-    }
-
-    const grandTotal = subtotal + deliveryFee + serviceFee + tipAmount - rewardDeduction;
-
-    const orderRes = await client.query(
-      'INSERT INTO orders (shooper_id, status, total_price, delivery_fee, service_fee, payment_method, batch_id) VALUES ($1, \'pending_confirmation\', $2, $3, $4, \'COD\', $5) RETURNING id',
-      [userId, grandTotal, deliveryFee + tipAmount, serviceFee, batch_id || null]
-    );
-    const orderId = orderRes.rows[0].id;
-
-    for (const i of items) {
-      await client.query('INSERT INTO order_items (order_id, menu_id, quantity, notes, price_per_item) VALUES ($1, $2, $3, $4, $5)', [orderId, i.menu_id, i.quantity, notes || '', i.price]);
-    }
-    await client.query('COMMIT');
-    res.json({ success: true, order_id: orderId, delivery_fee: deliveryFee, service_fee: serviceFee });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
-  } finally { client.release(); }
-});
-
-app.get('/api/shooper/my-orders', async (req, res) => {
-  try {
-    const { phone } = req.query;
-    if (!phone) return res.status(400).json({ error: 'Nomor WA wajib diisi' });
-
-    let cleanPhone = phone.trim().toLowerCase();
-    let formattedPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.substring(1) : cleanPhone;
-    if (cleanPhone === 'yasir' || cleanPhone === '081234567890' || cleanPhone === '6281234567890') formattedPhone = '6281234567890';
-
-    const query = `
-      SELECT o.id AS order_id, o.status, o.total_price, o.created_at, b.batch_name, b.cutoff_time,
-             STRING_AGG(CONCAT(oi.quantity, 'x ', mn.name), ', ') AS items_summary
-      FROM orders o
-      JOIN users u ON o.shooper_id = u.id
-      LEFT JOIN order_items oi ON oi.order_id = o.id
-      LEFT JOIN menus mn ON oi.menu_id = mn.id
-      LEFT JOIN batches b ON o.batch_id = b.id
-      WHERE u.phone_number = $1
-      GROUP BY o.id, o.status, o.total_price, o.created_at, b.batch_name, b.cutoff_time
-      ORDER BY o.id DESC LIMIT 10
-    `;
-    const result = await pool.query(query, [formattedPhone]);
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 app.listen(port, () => {

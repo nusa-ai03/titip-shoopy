@@ -9,7 +9,6 @@
 </head>
 <body class="min-h-screen bg-base-200 text-base-content flex flex-col">
 
-    <!-- LOGIN KASIR MERCHANT -->
     <div id="merchant-login-box" class="min-h-screen flex items-center justify-center p-4 bg-slate-900">
         <div class="card bg-base-100 shadow-2xl border border-emerald-500/30 w-full max-w-md p-8 space-y-6">
             <div class="text-center space-y-1">
@@ -26,17 +25,17 @@
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD MERCHANT -->
     <div id="merchant-main-content" class="hidden flex flex-col h-screen overflow-hidden">
         <header class="navbar bg-base-100 shadow px-4 border-b flex justify-between items-center z-30">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold">O</div>
                 <div>
                     <h1 class="text-sm font-black text-emerald-700 leading-tight" id="m-display-name">Warung</h1>
-                    <p class="text-[10px] opacity-70">POS Active</p>
+                    <p class="text-[10px] opacity-70">POS & Self-Order Active</p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <button onclick="openTablesModal()" class="btn btn-sm btn-outline btn-warning font-bold text-xs">🪑 QR Meja</button>
                 <button onclick="openStoreSettings()" class="btn btn-sm btn-outline btn-success font-bold text-xs">⚙️ Data Toko</button>
                 <button onclick="openProductMaster()" class="btn btn-sm btn-outline btn-primary font-bold text-xs">🍔 Master Produk</button>
                 <button onclick="logoutMerchant()" class="btn btn-sm btn-error text-white font-bold text-xs">Logout</button>
@@ -60,7 +59,7 @@
             <div class="w-full sm:w-[440px] bg-base-100 border-l flex flex-col shadow-xl z-20">
                 <div class="tabs tabs-boxed bg-base-200 p-1.5 font-bold text-xs m-2">
                     <a role="tab" onclick="switchPosTab('billing')" id="tab-billing" class="tab tab-active flex-1">🛒 Billing POS</a>
-                    <a role="tab" onclick="switchPosTab('orders')" id="tab-orders" class="tab flex-1">📦 Riwayat POS</a>
+                    <a role="tab" onclick="switchPosTab('orders')" id="tab-orders" class="tab flex-1">📦 Riwayat POS & Meja</a>
                     <a role="tab" onclick="switchPosTab('report')" id="tab-report" class="tab flex-1">📊 Laporan</a>
                 </div>
 
@@ -68,8 +67,22 @@
                 <div id="sec-billing" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3">
                     <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Keranjang Billing</span><button onclick="clearCart()" class="text-error text-[11px] link">Kosongkan</button></div>
                     <div id="cart-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 divide-y"><p class="text-xs opacity-60 text-center py-10">Keranjang kosong.</p></div>
+                    
+                    <div class="bg-base-200 p-2.5 rounded-xl space-y-2 text-xs">
+                        <div class="flex justify-between font-bold"><span>Subtotal:</span><span id="cart-subtotal">Rp 0</span></div>
+                        <div class="flex gap-2 items-center">
+                            <span class="font-bold">Diskon:</span>
+                            <select id="discount-type" onchange="renderCart()" class="select select-bordered select-xs w-24">
+                                <option value="none">Tanpa</option>
+                                <option value="percent">Persen (%)</option>
+                                <option value="nominal">Rupiah (Rp)</option>
+                            </select>
+                            <input type="number" id="discount-value" onkeyup="renderCart()" placeholder="Nilai" class="input input-bordered input-xs w-24 font-bold">
+                        </div>
+                    </div>
+
                     <div class="pt-2 border-t space-y-2">
-                        <div class="flex justify-between text-sm font-black"><span>Total:</span><span id="cart-grand-total" class="text-emerald-700">Rp 0</span></div>
+                        <div class="flex justify-between text-sm font-black"><span>Total Bayar:</span><span id="cart-grand-total" class="text-emerald-700">Rp 0</span></div>
                         <div class="grid grid-cols-2 gap-2">
                             <button onclick="openCashModal()" class="btn btn-success text-white font-bold text-xs shadow">💵 Bayar CASH</button>
                             <button onclick="checkoutPOS('QRIS')" class="btn btn-primary text-white font-bold text-xs shadow">📱 Bayar QRIS</button>
@@ -77,18 +90,28 @@
                     </div>
                 </div>
 
-                <!-- 2. RIWAYAT POS WALK IN SAJA -->
+                <!-- 2. RIWAYAT POS & MEJA -->
                 <div id="sec-orders" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
-                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Riwayat POS Walk-In</span><span id="order-count-badge" class="badge badge-success badge-xs text-white">0</span></div>
-                    <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi kasir POS.</p></div>
+                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Riwayat POS & Self-Order Meja</span><span id="order-count-badge" class="badge badge-success badge-xs text-white">0</span></div>
+                    <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi.</p></div>
                 </div>
 
-                <!-- 3. LAPORAN TRANSAKSI KHUSUS MERCHANT -->
+                <!-- 3. LAPORAN -->
                 <div id="sec-report" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
                     <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Laporan Penjualan Warung</span><button onclick="loadMerchantReport()" class="btn btn-xs btn-outline btn-success">Refresh</button></div>
                     <div id="merchant-report-list" class="flex-1 overflow-y-auto space-y-2 divide-y text-xs"><p class="text-xs opacity-70 text-center py-10">Memuat laporan...</p></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL QR CODE MEJA -->
+    <div id="tables-modal" class="modal">
+        <div class="modal-box max-w-md space-y-3 text-xs">
+            <h3 class="font-bold text-sm text-emerald-700">🪑 Daftar Meja & Link Self-Order (QR Code)</h3>
+            <p class="opacity-70">Bagikan link atau cetak QR code untuk setiap meja di warung Anda:</p>
+            <div id="tables-list-container" class="space-y-2 max-h-60 overflow-y-auto divide-y"></div>
+            <div class="modal-action"><button onclick="closeTablesModal()" class="btn btn-sm btn-ghost w-full">Tutup</button></div>
         </div>
     </div>
 
@@ -115,25 +138,26 @@
         </div>
     </div>
 
-    <!-- MODAL EDIT / REFUND / VOID (AKOMODIR PERUBAHAN SETELAH PAID) -->
+    <!-- MODAL KELOLA TRANSAKSI -->
     <div id="edit-order-modal" class="modal">
         <div class="modal-box max-w-xs space-y-3 text-xs">
             <h3 class="font-bold text-sm text-emerald-700" id="eo-title">Kelola Transaksi POS</h3>
             <input type="hidden" id="eo-order-id">
             <div class="form-control space-y-1">
-                <label class="font-bold">Ubah Status / Aksi (Refund, Void, Edit)</label>
+                <label class="font-bold">Ubah Status / Aksi</label>
                 <select id="eo-status-select" class="select select-bordered select-sm w-full text-xs">
-                    <option value="completed">Completed (Selesai/Lunas)</option>
-                    <option value="refunded">Refunded (Retur / Dana Dikembalikan)</option>
+                    <option value="completed">Completed (Paid / Lunas)</option>
+                    <option value="billing_open">Billing Open (Belum Bayar)</option>
+                    <option value="refunded">Refunded (Retur)</option>
                     <option value="void">Void (Dibatalkan)</option>
                 </select>
             </div>
             <div class="p-2 bg-base-200 rounded text-[11px] opacity-80">
-                💡 Tombol di bawah mengubah status sekaligus <b>memuat ulang item ke Billing POS</b> jika Anda ingin mengedit atau membuat ulang transaksi.
+                💡 Klik Simpan Status akan memperbarui status sekaligus <b>memuat item barang ke Billing POS</b>.
             </div>
             <div class="modal-action flex gap-2">
                 <button onclick="closeEditOrderModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
-                <button onclick="submitUpdateAndLoadToBilling()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan & Edit POS</button>
+                <button onclick="submitUpdateAndLoadToBilling()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan Status & Load POS</button>
             </div>
         </div>
     </div>
@@ -202,25 +226,8 @@
         </div>
     </div>
 
-    <div id="wa-modal" class="modal">
-        <div class="modal-box max-w-xs space-y-3 text-xs">
-            <h3 class="font-bold text-sm text-emerald-700">📱 Kirim E-Receipt via WA</h3>
-            <input type="hidden" id="modal-order-id-hidden">
-            <input type="hidden" id="modal-order-summary-hidden">
-            <input type="hidden" id="modal-order-total-hidden">
-            <div class="form-control space-y-1">
-                <label class="font-bold">Nomor WhatsApp Pembeli</label>
-                <input type="tel" id="modal-wa-input" placeholder="0812..." class="input input-bordered input-sm w-full text-xs">
-            </div>
-            <div class="modal-action flex gap-2">
-                <button onclick="closeWaModal()" class="btn btn-xs btn-ghost flex-1">Batal</button>
-                <button onclick="submitSendWa()" class="btn btn-xs btn-success text-white font-bold flex-1">Kirim</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        let currentMerchant = null, globalMenus = [], cart = [], globalLocations = [], globalSettings = {};
+        let currentMerchant = null, globalMenus = [], cart = [], globalLocations = [], globalSettings = {}, activeSelfOrderId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             const saved = localStorage.getItem('merchant_user');
@@ -232,6 +239,7 @@
                 loadLocations();
                 loadSettings();
                 loadMerchantDashboard();
+                setInterval(loadMerchantDashboard, 5000);
             }
         });
 
@@ -288,14 +296,12 @@
             let cleanId = currentMerchant.id;
             if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
 
-            // Tarik menu secara independen agar Grid POS selalu terisi
             try {
                 const menuRes = await fetch(`/api/merchant/menus/${cleanId}`);
                 globalMenus = await menuRes.json();
                 renderPosMenus();
             } catch(e) { globalMenus = []; }
 
-            // Tarik data dashboard lainnya
             try {
                 const res = await fetch(`/api/merchant/dashboard/${cleanId}`);
                 const data = await res.json();
@@ -365,22 +371,37 @@
             if (item) { item.quantity += delta; if (item.quantity <= 0) cart = cart.filter(i => i.menu_id !== id); }
             renderCart();
         }
-        function clearCart() { cart = []; renderCart(); }
+        function clearCart() { cart = []; activeSelfOrderId = null; renderCart(); }
 
-        function renderCart() {
-            const container = document.getElementById('cart-items-container');
-            const totalEl = document.getElementById('cart-grand-total');
-            if (cart.length === 0) { container.innerHTML = '<p class="text-xs opacity-60 text-center py-10">Keranjang kosong.</p>'; totalEl.innerText = 'Rp 0'; return; }
-            container.innerHTML = ''; let gt = 0;
-            cart.forEach(item => {
-                const sub = item.price * item.quantity; gt += sub;
-                container.innerHTML += `<div class="pt-2 flex justify-between items-center text-xs"><div><p class="font-bold">${item.name}</p><p class="opacity-70">Rp ${item.price.toLocaleString('id-ID')} x ${item.quantity}</p></div><div class="flex items-center gap-2"><span class="font-black text-emerald-700">Rp ${sub.toLocaleString('id-ID')}</span><div class="join border"><button onclick="updateQty(${item.menu_id}, -1)" class="btn btn-xs join-item">-</button><button class="btn btn-xs join-item btn-disabled">${item.quantity}</button><button onclick="updateQty(${item.menu_id}, 1)" class="btn btn-xs join-item">+</button></div></div></div>`;
-            });
-            totalEl.innerText = `Rp ${gt.toLocaleString('id-ID')}`;
+        function getCartSubtotal() {
+            let sub = 0; cart.forEach(i => sub += i.price * i.quantity); return sub;
         }
 
         function getCartGrandTotal() {
-            let gt = 0; cart.forEach(i => gt += i.price * i.quantity); return gt;
+            let sub = getCartSubtotal();
+            const type = document.getElementById('discount-type').value;
+            const val = parseFloat(document.getElementById('discount-value').value) || 0;
+            let gt = sub;
+            if (type === 'percent') gt = sub - (sub * (val / 100));
+            else if (type === 'nominal') gt = sub - val;
+            return gt < 0 ? 0 : gt;
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items-container');
+            const subtotalEl = document.getElementById('cart-subtotal');
+            const totalEl = document.getElementById('cart-grand-total');
+
+            let sub = getCartSubtotal();
+            subtotalEl.innerText = `Rp ${sub.toLocaleString('id-ID')}`;
+            totalEl.innerText = `Rp ${getCartGrandTotal().toLocaleString('id-ID')}`;
+
+            if (cart.length === 0) { container.innerHTML = '<p class="text-xs opacity-60 text-center py-10">Keranjang kosong.</p>'; return; }
+            container.innerHTML = '';
+            cart.forEach(item => {
+                const subItem = item.price * item.quantity;
+                container.innerHTML += `<div class="pt-2 flex justify-between items-center text-xs"><div><p class="font-bold">${item.name}</p><p class="opacity-70">Rp ${item.price.toLocaleString('id-ID')} x ${item.quantity}</p></div><div class="flex items-center gap-2"><span class="font-black text-emerald-700">Rp ${subItem.toLocaleString('id-ID')}</span><div class="join border"><button onclick="updateQty(${item.menu_id}, -1)" class="btn btn-xs join-item">-</button><button class="btn btn-xs join-item btn-disabled">${item.quantity}</button><button onclick="updateQty(${item.menu_id}, 1)" class="btn btn-xs join-item">+</button></div></div></div>`;
+            });
         }
 
         function openCashModal() {
@@ -420,9 +441,25 @@
 
         async function checkoutPOS(pm) {
             if (cart.length === 0) return alert('Keranjang kosong!');
-            const res = await fetch('/api/merchant/pos-checkout', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ merchant_id: currentMerchant.id, items: cart, payment_method: pm }) });
+            const type = document.getElementById('discount-type').value;
+            const val = parseFloat(document.getElementById('discount-value').value) || 0;
+
+            const payload = {
+                merchant_id: currentMerchant.id,
+                items: cart,
+                payment_method: pm,
+                discount_type: type,
+                discount_value: val
+            };
+            if (activeSelfOrderId) payload.order_id = activeSelfOrderId;
+
+            const res = await fetch('/api/merchant/pos-checkout', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             const data = await res.json();
-            if (data.success) { alert('Transaksi POS Sukses & Lunas!'); window.open(`/api/orders/receipt-pdf/${data.order_id}`, '_blank'); cart = []; renderCart(); loadMerchantDashboard(); }
+            if (data.success) {
+                alert('Pembayaran Sukses & Lunas (Paid)!');
+                window.open(`/api/orders/receipt-pdf/${data.order_id}`, '_blank');
+                cart = []; activeSelfOrderId = null; renderCart(); loadMerchantDashboard();
+            }
         }
 
         function switchPosTab(tab) {
@@ -443,17 +480,49 @@
         function renderPosOrders(orders) {
             const list = document.getElementById('pos-orders-ticket-list');
             document.getElementById('order-count-badge').innerText = orders.length;
-            if (orders.length === 0) { list.innerHTML = '<p class="text-xs opacity-70 text-center py-10">Belum ada transaksi kasir POS.</p>'; return; }
+            if (orders.length === 0) { list.innerHTML = '<p class="text-xs opacity-70 text-center py-10">Belum ada transaksi POS & Meja.</p>'; return; }
             list.innerHTML = '';
             orders.forEach(o => {
-                let safeSummary = (o.items_summary || '').replace(/"/g, '&quot;');
-                list.innerHTML += `<div class="pt-2 space-y-1 text-xs"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><div class="flex gap-1 items-center"><span class="badge badge-success badge-xs text-white">${o.status}</span><button onclick='openEditOrderModal(${o.id || o.order_id}, "${o.status}")' class="btn btn-xs btn-outline btn-success py-0 h-5 min-h-0 text-[10px]">Edit/Refund/Void</button></div></div><p class="font-bold">${o.shooper_name} (${o.department_location})</p><p class="opacity-80">${o.items_summary}</p><div class="flex justify-between items-center pt-1"><span class="font-black text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span><div class="flex gap-1"><a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 PDF</a><button onclick='openWaModal(${o.order_id}, "${o.phone_number || ''}", "${safeSummary}", ${o.total_price})' class="btn btn-xs btn-success text-white">WA</button></div></div></div>`;
+                let badgeColor = o.status === 'billing_open' ? 'badge-warning' : (o.status === 'completed' ? 'badge-success' : 'badge-error');
+                let statusLabel = o.status === 'billing_open' ? 'Billing Open' : (o.status === 'completed' ? 'Paid / Lunas' : o.status);
+                let tableTag = o.table_number ? `<span class="badge badge-primary badge-xs">Meja ${o.table_number} (${o.customer_name || 'Tamu'})</span>` : '';
+
+                list.innerHTML += `
+                    <div class="pt-2 space-y-1 text-xs bg-base-100 p-2 rounded border">
+                        <div class="flex justify-between font-bold">
+                            <span class="text-emerald-700">Order #${o.order_id} ${tableTag}</span>
+                            <div class="flex gap-1 items-center">
+                                <span class="badge ${badgeColor} badge-xs text-white">${statusLabel}</span>
+                                <button onclick='openEditOrderModal(${o.order_id}, "${o.status}")' class="btn btn-xs btn-outline btn-success py-0 h-5 min-h-0 text-[10px]">Kelola</button>
+                            </div>
+                        </div>
+                        <p class="opacity-80">${o.items_summary}</p>
+                        <div class="flex justify-between items-center pt-1 border-t">
+                            <span class="font-black text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span>
+                            <div class="flex gap-1">
+                                ${o.status === 'billing_open' ? `<button onclick="paySelfOrder(${o.order_id})" class="btn btn-xs btn-success text-white font-bold">💰 Lunasi</button>` : ''}
+                                <a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 PDF</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
             });
+        }
+
+        async function paySelfOrder(orderId) {
+            activeSelfOrderId = orderId;
+            const res = await fetch(`/api/merchant/order-items/${orderId}`);
+            const items = await res.json();
+            cart = [];
+            items.forEach(it => { cart.push({ menu_id: it.menu_id, name: it.name, price: parseFloat(it.price), quantity: it.quantity }); });
+            renderCart();
+            switchPosTab('billing');
+            openCashModal();
         }
 
         function openEditOrderModal(orderId, currentStatus) {
             document.getElementById('eo-order-id').value = orderId;
-            document.getElementById('eo-title').innerText = `Kelola Transaksi POS #${orderId}`;
+            document.getElementById('eo-title').innerText = `Kelola Transaksi #${orderId}`;
             document.getElementById('eo-status-select').value = currentStatus;
             document.getElementById('edit-order-modal').classList.add('modal-open');
         }
@@ -462,14 +531,46 @@
         async function submitUpdateAndLoadToBilling() {
             const order_id = document.getElementById('eo-order-id').value;
             const status = document.getElementById('eo-status-select').value;
+            
+            // Update status ke server
             await fetch('/api/merchant/orders/update-status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ order_id, status }) });
+            
+            // Muat otomatis item barang ke Billing POS
+            activeSelfOrderId = order_id;
             const res = await fetch(`/api/merchant/order-items/${order_id}`);
             const items = await res.json();
             cart = [];
             items.forEach(it => { cart.push({ menu_id: it.menu_id, name: it.name, price: parseFloat(it.price), quantity: it.quantity }); });
-            renderCart(); switchPosTab('billing'); closeEditOrderModal();
-            alert(`Transaksi #${order_id} diperbarui menjadi (${status}) dan itemnya dimuat kembali ke Billing POS!`);
+            renderCart();
+            switchPosTab('billing');
+            closeEditOrderModal();
+            alert(`Transaksi #${order_id} dimuat ke Billing POS! Silakan proses atau lanjutkan.`);
         }
+
+        async function openTablesModal() {
+            let cleanId = currentMerchant.id;
+            if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
+            const res = await fetch(`/api/merchant/tables/${cleanId}`);
+            const tables = await res.json();
+            const container = document.getElementById('tables-list-container');
+            container.innerHTML = '';
+            if (tables.length === 0) { container.innerHTML = '<p class="opacity-60 text-center py-4">Belum ada meja terdaftar.</p>'; return; }
+            
+            tables.forEach(t => {
+                let orderUrl = `https://${window.location.host}/order?merchant=${cleanId}&table=${t.table_number}`;
+                container.innerHTML += `
+                    <div class="py-2 flex justify-between items-center text-xs">
+                        <div>
+                            <p class="font-bold text-emerald-700">Meja ${t.table_number}</p>
+                            <a href="${orderUrl}" target="_blank" class="text-[10px] text-blue-600 link">${orderUrl}</a>
+                        </div>
+                        <a href="${orderUrl}" target="_blank" class="btn btn-xs btn-success text-white font-bold">Buka E-Menu</a>
+                    </div>
+                `;
+            });
+            document.getElementById('tables-modal').classList.add('modal-open');
+        }
+        function closeTablesModal() { document.getElementById('tables-modal').classList.remove('modal-open'); }
 
         function openStoreSettings() {
             if (!currentMerchant) {
@@ -575,33 +676,6 @@
             const payload = { id: id ? id : null, merchant_id: currentMerchant.id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos };
             const res = await fetch('/api/admin/menus', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             if ((await res.json()).success) { alert('Tersimpan!'); cancelMenuForm(); loadMerchantDashboard(); openProductMaster(); }
-        }
-
-        function openWaModal(id, phone, summary, total) {
-            document.getElementById('modal-order-id-hidden').value = id;
-            document.getElementById('modal-order-summary-hidden').value = summary;
-            document.getElementById('modal-order-total-hidden').value = total;
-            document.getElementById('modal-wa-input').value = phone === 'undefined' ? '' : phone;
-            document.getElementById('wa-modal').classList.add('modal-open');
-        }
-        function closeWaModal() { document.getElementById('modal-wa-input').value = ''; document.getElementById('wa-modal').classList.remove('modal-open'); }
-
-        function submitSendWa() {
-            const phone = document.getElementById('modal-wa-input').value.trim();
-            if (!phone) return alert('Nomor WhatsApp wajib diisi!');
-            
-            const orderId = document.getElementById('modal-order-id-hidden').value;
-            const summary = document.getElementById('modal-order-summary-hidden').value;
-            const total = parseFloat(document.getElementById('modal-order-total-hidden').value) || 0;
-            const pdfUrl = `https://${window.location.host}/api/orders/receipt-pdf/${orderId}`;
-            const catalogUrl = `https://${window.location.host}/`;
-
-            let itemsArray = summary.split(',').map(i => `• ${i.trim()}`).join('\n');
-            const text = `Halo, terima kasih telah berbelanja di *${currentMerchant.name}*!\n\n*Ringkasan Pesanan #${orderId}:*\n${itemsArray}\n\n*Total Tagihan:* Rp ${total.toLocaleString('id-ID')}\n\n[🌐 e-Menu](${catalogUrl}) | [📄 e-Struk](${pdfUrl})\n\nTerima kasih atas kunjungan Anda! 🙏✨`;
-
-            let cleanPhone = phone.startsWith('0') ? '62' + phone.substring(1) : phone;
-            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
-            closeWaModal();
         }
     </script>
 </body>

@@ -80,7 +80,7 @@
                 <!-- 2. RIWAYAT POS WALK IN SAJA -->
                 <div id="sec-orders" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
                     <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Riwayat POS Walk-In</span><span id="order-count-badge" class="badge badge-success badge-xs text-white">0</span></div>
-                    <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi kasir.</p></div>
+                    <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi kasir POS.</p></div>
                 </div>
 
                 <!-- 3. LAPORAN TRANSAKSI KHUSUS MERCHANT -->
@@ -115,22 +115,25 @@
         </div>
     </div>
 
-    <!-- MODAL EDIT / VOID -->
+    <!-- MODAL EDIT / REFUND / VOID (AKOMODIR PERUBAHAN SETELAH PAID) -->
     <div id="edit-order-modal" class="modal">
         <div class="modal-box max-w-xs space-y-3 text-xs">
-            <h3 class="font-bold text-sm text-emerald-700" id="eo-title">Edit / Void Transaksi</h3>
+            <h3 class="font-bold text-sm text-emerald-700" id="eo-title">Kelola Transaksi POS</h3>
             <input type="hidden" id="eo-order-id">
             <div class="form-control space-y-1">
-                <label class="font-bold">Ubah Status Pesanan</label>
+                <label class="font-bold">Ubah Status / Aksi (Refund, Void, Edit)</label>
                 <select id="eo-status-select" class="select select-bordered select-sm w-full text-xs">
-                    <option value="completed">Completed (Selesai/Paid)</option>
+                    <option value="completed">Completed (Selesai/Lunas)</option>
+                    <option value="refunded">Refunded (Retur / Dana Dikembalikan)</option>
                     <option value="void">Void (Dibatalkan)</option>
-                    <option value="preparing">Preparing (Diproses)</option>
                 </select>
+            </div>
+            <div class="p-2 bg-base-200 rounded text-[11px] opacity-80">
+                💡 Tombol di bawah mengubah status sekaligus <b>memuat ulang item ke Billing POS</b> jika Anda ingin mengedit atau membuat ulang transaksi.
             </div>
             <div class="modal-action flex gap-2">
                 <button onclick="closeEditOrderModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
-                <button onclick="submitUpdateAndLoadToBilling()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan & Load POS</button>
+                <button onclick="submitUpdateAndLoadToBilling()" class="btn btn-sm btn-success text-white font-bold flex-1">Simpan & Edit POS</button>
             </div>
         </div>
     </div>
@@ -225,7 +228,7 @@
                 currentMerchant = JSON.parse(saved);
                 document.getElementById('merchant-login-box').classList.add('hidden');
                 document.getElementById('merchant-main-content').classList.remove('hidden');
-                document.getElementById('m-display-name').innerText = currentMerchant.name;
+                document.getElementById('m-display-name').innerText = currentMerchant.name || 'Warung';
                 loadLocations();
                 loadSettings();
                 loadMerchantDashboard();
@@ -281,20 +284,41 @@
         function logoutMerchant() { localStorage.removeItem('merchant_user'); location.reload(); }
 
         async function loadMerchantDashboard() {
-            const res = await fetch(`/api/merchant/dashboard/${currentMerchant.id}`);
-            const data = await res.json();
-            currentMerchant = data.merchant;
-            localStorage.setItem('merchant_user', JSON.stringify(currentMerchant));
-            globalMenus = data.menus || [];
-            renderPosMenus();
-            renderPosOrders(data.orders || []);
+            if (!currentMerchant || !currentMerchant.id) return;
+            let cleanId = currentMerchant.id;
+            if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
+
+            // Tarik menu secara independen agar Grid POS selalu terisi
+            try {
+                const menuRes = await fetch(`/api/merchant/menus/${cleanId}`);
+                globalMenus = await menuRes.json();
+                renderPosMenus();
+            } catch(e) { globalMenus = []; }
+
+            // Tarik data dashboard lainnya
+            try {
+                const res = await fetch(`/api/merchant/dashboard/${cleanId}`);
+                const data = await res.json();
+                if (data.merchant) {
+                    currentMerchant = data.merchant;
+                    localStorage.setItem('merchant_user', JSON.stringify(currentMerchant));
+                }
+                if (data.menus && data.menus.length > 0) {
+                    globalMenus = data.menus;
+                    renderPosMenus();
+                }
+                renderPosOrders(data.orders || []);
+            } catch(e) {}
         }
 
         async function loadMerchantReport() {
             const list = document.getElementById('merchant-report-list');
             list.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Memuat laporan...</p>';
+            let cleanId = currentMerchant.id;
+            if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
+
             try {
-                const res = await fetch(`/api/merchant/report/${currentMerchant.id}`);
+                const res = await fetch(`/api/merchant/report/${cleanId}`);
                 const rows = await res.json();
                 list.innerHTML = '';
                 if (rows.length === 0) { list.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Belum ada transaksi.</p>'; return; }
@@ -319,12 +343,15 @@
         function renderPosMenus() {
             const grid = document.getElementById('pos-menu-grid');
             const kw = document.getElementById('pos-search').value.toLowerCase().trim();
-            let filtered = globalMenus.filter(m => m.publish_pos !== false && m.is_available !== false);
-            if (kw) filtered = filtered.filter(m => m.name.toLowerCase().includes(kw));
+            let filtered = globalMenus.filter(m => m.is_available !== false);
+            if (kw) filtered = filtered.filter(m => (m.name || m.menu_name || '').toLowerCase().includes(kw));
+            
             if (filtered.length === 0) { grid.innerHTML = '<p class="text-xs opacity-70 col-span-full text-center py-10">Tidak ada menu aktif POS.</p>'; return; }
             grid.innerHTML = '';
             filtered.forEach(m => {
-                grid.innerHTML += `<div onclick="addToCart(${m.id}, '${m.name}', ${m.price})" class="card bg-base-100 border shadow-sm rounded-2xl overflow-hidden cursor-pointer hover:border-emerald-500"><div class="relative h-20 bg-base-200"><img src="${m.image_url}" class="w-full h-full object-cover"></div><div class="p-2 space-y-0.5"><h4 class="font-bold text-xs line-clamp-1">${m.name}</h4><p class="font-black text-xs text-emerald-700">Rp ${parseFloat(m.price).toLocaleString('id-ID')}</p></div></div>`;
+                let priceVal = m.price || m.selling_price || 0;
+                let imgVal = m.image_url || m.img || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
+                grid.innerHTML += `<div onclick="addToCart(${m.id || m.menu_id}, '${m.name || m.menu_name}', ${priceVal})" class="card bg-base-100 border shadow-sm rounded-2xl overflow-hidden cursor-pointer hover:border-emerald-500"><div class="relative h-20 bg-base-200"><img src="${imgVal}" class="w-full h-full object-cover"></div><div class="p-2 space-y-0.5"><h4 class="font-bold text-xs line-clamp-1">${m.name || m.menu_name}</h4><p class="font-black text-xs text-emerald-700">Rp ${parseFloat(priceVal).toLocaleString('id-ID')}</p></div></div>`;
             });
         }
 
@@ -420,13 +447,13 @@
             list.innerHTML = '';
             orders.forEach(o => {
                 let safeSummary = (o.items_summary || '').replace(/"/g, '&quot;');
-                list.innerHTML += `<div class="pt-2 space-y-1 text-xs"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><div class="flex gap-1 items-center"><span class="badge badge-success badge-xs text-white">${o.status}</span><button onclick='openEditOrderModal(${o.id || o.order_id}, "${o.status}")' class="btn btn-xs btn-outline btn-success py-0 h-5 min-h-0 text-[10px]">Edit/Void</button></div></div><p class="font-bold">${o.shooper_name} (${o.department_location})</p><p class="opacity-80">${o.items_summary}</p><div class="flex justify-between items-center pt-1"><span class="font-black text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span><div class="flex gap-1"><a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 PDF</a><button onclick='openWaModal(${o.order_id}, "${o.phone_number || ''}", "${safeSummary}", ${o.total_price})' class="btn btn-xs btn-success text-white">WA</button></div></div></div>`;
+                list.innerHTML += `<div class="pt-2 space-y-1 text-xs"><div class="flex justify-between font-bold"><span class="text-emerald-700">Order #${o.order_id}</span><div class="flex gap-1 items-center"><span class="badge badge-success badge-xs text-white">${o.status}</span><button onclick='openEditOrderModal(${o.id || o.order_id}, "${o.status}")' class="btn btn-xs btn-outline btn-success py-0 h-5 min-h-0 text-[10px]">Edit/Refund/Void</button></div></div><p class="font-bold">${o.shooper_name} (${o.department_location})</p><p class="opacity-80">${o.items_summary}</p><div class="flex justify-between items-center pt-1"><span class="font-black text-warning">Rp ${parseFloat(o.total_price).toLocaleString('id-ID')}</span><div class="flex gap-1"><a href="/api/orders/receipt-pdf/${o.order_id}" target="_blank" class="btn btn-xs btn-outline btn-success">📄 PDF</a><button onclick='openWaModal(${o.order_id}, "${o.phone_number || ''}", "${safeSummary}", ${o.total_price})' class="btn btn-xs btn-success text-white">WA</button></div></div></div>`;
             });
         }
 
         function openEditOrderModal(orderId, currentStatus) {
             document.getElementById('eo-order-id').value = orderId;
-            document.getElementById('eo-title').innerText = `Edit / Void Transaksi #${orderId}`;
+            document.getElementById('eo-title').innerText = `Kelola Transaksi POS #${orderId}`;
             document.getElementById('eo-status-select').value = currentStatus;
             document.getElementById('edit-order-modal').classList.add('modal-open');
         }
@@ -441,10 +468,16 @@
             cart = [];
             items.forEach(it => { cart.push({ menu_id: it.menu_id, name: it.name, price: parseFloat(it.price), quantity: it.quantity }); });
             renderCart(); switchPosTab('billing'); closeEditOrderModal();
-            alert(`Pesanan #${order_id} diperbarui dan itemnya dimuat ke Billing POS!`);
+            alert(`Transaksi #${order_id} diperbarui menjadi (${status}) dan itemnya dimuat kembali ke Billing POS!`);
         }
 
         function openStoreSettings() {
+            if (!currentMerchant) {
+                const saved = localStorage.getItem('merchant_user');
+                if (saved) currentMerchant = JSON.parse(saved);
+            }
+            if (!currentMerchant) return alert('Silakan login ulang!');
+            
             document.getElementById('store-name').value = currentMerchant.name || '';
             document.getElementById('store-phone').value = currentMerchant.phone_number || '';
             document.getElementById('store-address').value = currentMerchant.address || '';
@@ -484,7 +517,7 @@
                 let statusBadge = m.is_available ? '✅ Available' : '❌ Sold Out';
                 if (m.publish_web) statusBadge += ' | 🌐 Web';
                 if (m.publish_pos) statusBadge += ' | 💻 POS';
-                list.innerHTML += `<div class="flex justify-between items-center py-2"><div class="flex items-center gap-2"><img src="${m.image_url}" class="w-10 h-10 object-cover rounded"><div><p class="font-bold">${m.name}</p><p class="opacity-70">Rp ${parseFloat(m.price).toLocaleString('id-ID')} | ${statusBadge}</p></div></div><button onclick='editMerchantMenu(${JSON.stringify(m)})' class="btn btn-xs btn-outline btn-success">Edit</button></div>`;
+                list.innerHTML += `<div class="flex justify-between items-center py-2"><div class="flex items-center gap-2"><img src="${m.image_url || m.img}" class="w-10 h-10 object-cover rounded"><div><p class="font-bold">${m.name || m.menu_name}</p><p class="opacity-70">Rp ${parseFloat(m.price || m.selling_price || 0).toLocaleString('id-ID')} | ${statusBadge}</p></div></div><button onclick='editMerchantMenu(${JSON.stringify(m)})' class="btn btn-xs btn-outline btn-success">Edit</button></div>`;
             });
         }
 
@@ -502,9 +535,9 @@
         }
 
         function editMerchantMenu(m) {
-            document.getElementById('form-menu-title').innerText = `Edit: ${m.name}`;
-            document.getElementById('fm-id').value = m.id; document.getElementById('fm-name').value = m.name;
-            document.getElementById('fm-cost').value = m.cost_price || 0; document.getElementById('fm-sell').value = m.price || 0;
+            document.getElementById('form-menu-title').innerText = `Edit: ${m.name || m.menu_name}`;
+            document.getElementById('fm-id').value = m.id || m.menu_id; document.getElementById('fm-name').value = m.name || m.menu_name;
+            document.getElementById('fm-cost').value = m.cost_price || 0; document.getElementById('fm-sell').value = m.price || m.selling_price || 0;
             document.getElementById('fm-runner').value = m.runner_fee || 0; document.getElementById('fm-promo').value = m.shooper_promo || 0;
             document.getElementById('fm-markup').value = m.markup_price || 0;
             document.getElementById('fm-pubweb').checked = m.publish_web !== false;
@@ -533,8 +566,8 @@
                 reader.onload = async function(e) { sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, e.target.result); };
                 reader.readAsDataURL(fileInput.files[0]);
             } else {
-                const ex = globalMenus.find(m => m.id == id);
-                sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, ex ? ex.image_url : '');
+                const ex = globalMenus.find(m => (m.id || m.menu_id) == id);
+                sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, ex ? (ex.image_url || ex.img) : '');
             }
         }
 

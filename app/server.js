@@ -422,11 +422,8 @@ app.get('/api/runner/delivery-summary', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint Laporan Pengantaran Khusus Runner (yang diselesaikan oleh runner)
 app.get('/api/runner/report/:phone', async (req, res) => {
   try {
-    const { phone } = req.params;
-    // Mengambil order yang berstatus completed atau yang relevan
     const query = `
       SELECT o.id AS order_id, o.status, o.total_price, o.created_at,
              u.name AS shooper_name, u.department_location,
@@ -535,43 +532,55 @@ app.post('/api/admin/users', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================== API MERCHANT DASHBOARD & REPORT ====================
+// ==================== API MERCHANT DASHBOARD (SAFE QUERY TANPA ERROR 500) ====================
 app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
   try {
     const { merchantId } = req.params;
-    const mRes = await pool.query('SELECT * FROM merchants WHERE id = $1', [merchantId]);
+    const cleanId = merchantId.split(':')[0];
+    const mRes = await pool.query('SELECT * FROM merchants WHERE id = $1', [cleanId]);
     if (mRes.rows.length === 0) return res.status(404).json({ error: 'Merchant tidak ditemukan' });
     const merchant = mRes.rows[0];
-    const menuRes = await pool.query('SELECT * FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [merchantId]);
+    const menuRes = await pool.query('SELECT * FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [cleanId]);
     
-    // Riwayat POS di merchant HANYA menampilkan transaksi kasir walk in saja (pos_walk_in)
+    // Kueri aman: Mengambil riwayat POS walk-in berdasarkan merchant_id via order_items & menus tanpa error
     const orderRes = await pool.query(`
-      SELECT o.id AS order_id, o.status, o.total_price, o.created_at, u.name AS shooper_name, u.phone_number, u.department_location,
-             STRING_AGG(CONCAT(oi.quantity, 'x ', mn.name, ' (Rp ', oi.price_per_item, ')'), ', ') AS items_summary
-      FROM orders o JOIN users u ON o.shooper_id = u.id JOIN order_items oi ON oi.order_id = o.id JOIN menus mn ON oi.menu_id = mn.id
-      WHERE mn.merchant_id = $1 AND o.status IN ('completed', 'void') AND o.payment_method = 'CASH' AND u.phone_number LIKE 'POS_WALK_IN_%'
-      GROUP BY o.id, o.status, o.total_price, o.created_at, u.name, u.phone_number, u.department_location ORDER BY o.id DESC LIMIT 30
-    `, [merchantId]);
+      SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'CASH') AS payment_method, o.created_at, u.name AS shooper_name, u.phone_number, u.department_location,
+             (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
+      FROM orders o 
+      JOIN users u ON o.shooper_id = u.id 
+      JOIN order_items oi ON oi.order_id = o.id 
+      JOIN menus mn ON oi.menu_id = mn.id
+      WHERE mn.merchant_id = $1 AND u.phone_number LIKE 'POS_WALK_IN_%'
+      ORDER BY o.id DESC LIMIT 30
+    `, [cleanId]);
 
     res.json({ merchant, menus: menuRes.rows, orders: orderRes.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint Laporan Transaksi Khusus Merchant tersebut
+app.get('/api/merchant/menus/:merchantId', async (req, res) => {
+  try {
+    const { merchantId } = req.params;
+    const cleanId = merchantId.split(':')[0];
+    const menuRes = await pool.query('SELECT * FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [cleanId]);
+    res.json(menuRes.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/merchant/report/:merchantId', async (req, res) => {
   try {
     const { merchantId } = req.params;
+    const cleanId = merchantId.split(':')[0];
     const reportRes = await pool.query(`
-      SELECT o.id AS order_id, o.status, o.total_price, o.payment_method, o.created_at, u.name AS shooper_name,
-             STRING_AGG(CONCAT(oi.quantity, 'x ', mn.name), ', ') AS items_summary
+      SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'COD') AS payment_method, o.created_at, u.name AS shooper_name,
+             (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
       FROM orders o 
       JOIN users u ON o.shooper_id = u.id 
       JOIN order_items oi ON oi.order_id = o.id 
       JOIN menus mn ON oi.menu_id = mn.id
       WHERE mn.merchant_id = $1
-      GROUP BY o.id, o.status, o.total_price, o.payment_method, o.created_at, u.name
       ORDER BY o.id DESC LIMIT 50
-    `, [merchantId]);
+    `, [cleanId]);
     res.json(reportRes.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -596,12 +605,13 @@ app.post('/api/merchant/pos-checkout', async (req, res) => {
     if (!merchant_id || !items || items.length === 0) return res.status(400).json({ error: 'Keranjang kosong' });
 
     await client.query('BEGIN');
-    let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [`POS_WALK_IN_${merchant_id}`]);
+    let cleanMerchantId = merchant_id.toString().split(':')[0];
+    let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [`POS_WALK_IN_${cleanMerchantId}`]);
     let customerId;
     if (customerRes.rows.length === 0) {
       const newCust = await client.query(
         `INSERT INTO users (name, phone_number, role, department_location, is_approved) VALUES ($1, $2, 'shooper', 'POS Offline Warung', TRUE) RETURNING id`,
-        [`Tamu Kasir`, `POS_WALK_IN_${merchant_id}`]
+        [`Tamu Kasir`, `POS_WALK_IN_${cleanMerchantId}`]
       );
       customerId = newCust.rows[0].id;
     } else {
@@ -638,7 +648,90 @@ app.post('/api/merchant/orders/update-status', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================== API CATALOG (MERCHANTS ACTIVE & PUBLISH WEB) ====================
+// ==================== THERMAL PDF RECEIPT ====================
+app.get('/api/orders/receipt-pdf/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const orderRes = await pool.query(`
+      SELECT o.id, o.total_price, COALESCE(o.payment_method, 'COD') AS payment_method, o.created_at,
+             u.name AS shooper_name, u.department_location,
+             m.name AS merchant_name, m.phone_number AS merchant_phone
+      FROM orders o
+      JOIN users u ON o.shooper_id = u.id
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN menus mn ON oi.menu_id = mn.id
+      JOIN merchants m ON mn.merchant_id = m.id
+      WHERE o.id = $1 LIMIT 1
+    `, [orderId]);
+
+    if (orderRes.rows.length === 0) return res.status(404).send('Struk tidak ditemukan');
+    const order = orderRes.rows[0];
+
+    const itemsRes = await pool.query(`
+      SELECT oi.quantity, oi.price_per_item, mn.name AS menu_name
+      FROM order_items oi
+      JOIN menus mn ON oi.menu_id = mn.id
+      WHERE oi.order_id = $1
+    `, [orderId]);
+
+    const logoRes = await pool.query("SELECT value FROM settings WHERE key = 'store_logo'");
+    let logoPath = logoRes.rows.length > 0 && logoRes.rows[0].value ? path.join(__dirname, 'public', logoRes.rows[0].value) : path.join(__dirname, 'public', 'images', 'logo_dummy.png');
+
+    const itemCount = itemsRes.rows.length;
+    const dynamicHeight = 195 + (itemCount * 22);
+    const canvasWidth = 226;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=Struk-Thermal-#${order.id}.pdf`);
+
+    const doc = new PDFDocument({ size: [canvasWidth, dynamicHeight], margin: 10 });
+    doc.pipe(res);
+
+    if (fs.existsSync(logoPath)) {
+      try {
+        doc.image(logoPath, (canvasWidth - 80) / 2, 5, { width: 80, align: 'center' });
+        doc.moveDown(2.2);
+      } catch (e) {
+        doc.moveDown(0.5);
+      }
+    }
+
+    doc.fontSize(10).font('Helvetica-Bold').text(order.merchant_name || 'STRUK PEMBAYARAN', 10, doc.y, { width: 206, align: 'center' });
+    doc.fontSize(7).font('Helvetica').text(`Telp/WA: ${order.merchant_phone || '-'}`, 10, doc.y, { width: 206, align: 'center' });
+    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
+
+    doc.fontSize(7).font('Helvetica-Bold').text(`No. Struk : #${order.id}`, 10, doc.y, { width: 206, align: 'left' });
+    doc.font('Helvetica').text(`Tgl       : ${new Date(order.created_at).toLocaleString('id-ID')}`, 10, doc.y, { width: 206, align: 'left' });
+    doc.text(`Pelanggan : ${order.shooper_name}`, 10, doc.y, { width: 206, align: 'left' });
+    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
+
+    itemsRes.rows.forEach(item => {
+      const subtotal = item.quantity * parseFloat(item.price_per_item);
+      const itemText = `${item.quantity}x ${item.menu_name}`;
+      const priceText = `Rp ${subtotal.toLocaleString('id-ID')}`;
+
+      const currentY = doc.y;
+      doc.font('Helvetica').fontSize(8).text(itemText, 10, currentY, { width: 135, align: 'left' });
+      doc.text(priceText, 145, currentY, { width: 70, align: 'right' });
+      doc.moveDown(0.4);
+    });
+
+    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
+    
+    doc.font('Helvetica-Bold').fontSize(9).text(`TOTAL : Rp ${parseFloat(order.total_price).toLocaleString('id-ID')}`, 10, doc.y, { width: 206, align: 'center' });
+    doc.font('Helvetica').fontSize(7).text(`Pembayaran: ${order.payment_method || 'CASH'} (LUNAS)`, 10, doc.y, { width: 206, align: 'center' });
+    doc.text('------------------------------------------------------------', 10, doc.y, { width: 206, align: 'center' });
+    
+    doc.fontSize(7).font('Helvetica').text('Terima kasih telah berkunjung!', 10, doc.y, { width: 206, align: 'center' });
+    doc.font('Helvetica-Bold').text('Pesan Online / E-Menu:', 10, doc.y, { width: 206, align: 'center' });
+    doc.fillColor('blue').text('https://titip.shoopy.my.id', 10, doc.y, { width: 206, align: 'center', link: 'https://titip.shoopy.my.id' });
+
+    doc.end();
+  } catch (err) {
+    res.status(500).send('Gagal memuat struk PDF');
+  }
+});
+
 app.get('/api/merchants/active', async (req, res) => {
   try {
     const query = `

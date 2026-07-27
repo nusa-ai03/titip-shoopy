@@ -17,13 +17,24 @@
                 <p class="text-[10px] opacity-70" id="table-label">Meja -</p>
             </div>
         </div>
-        <div><button onclick="openCartModal()" class="btn btn-sm btn-success text-white font-bold text-xs">🛒 Keranjang (<span id="cart-count">0</span>)</button></div>
+        <div class="flex gap-2">
+            <button onclick="openActiveOrderModal()" id="btn-active-cart" class="hidden btn btn-sm btn-outline btn-success font-bold text-xs">📋 Keranjang Meja</button>
+            <button onclick="openCartModal()" class="btn btn-sm btn-success text-white font-bold text-xs">🛒 Keranjang (<span id="cart-count">0</span>)</button>
+        </div>
     </header>
 
     <main class="max-w-md mx-auto w-full p-4 flex-1 space-y-4">
         <div class="form-control bg-base-100 p-3 rounded-2xl shadow-sm border space-y-2">
-            <label class="text-xs font-bold">Nama Pemesan / Pengunjung</label>
-            <input type="text" id="customer-name" placeholder="Masukkan Nama Anda" class="input input-bordered input-sm w-full text-xs">
+            <label class="text-xs font-bold">Nomor WhatsApp</label>
+            <input type="tel" id="customer-whatsapp" onblur="checkWhatsappRegistered(this.value)" placeholder="Contoh: 081234567890" class="input input-bordered input-sm w-full text-xs font-bold">
+            
+            <div id="wa-notification" class="p-2 bg-warning/20 border border-warning rounded-xl hidden space-y-1">
+                <p class="text-[11px] font-bold text-warning-content">⚠️ Nomor WA ini sudah terdaftar atas nama: <span id="reg-name" class="underline"></span></p>
+                <button onclick="verifyShooperData()" class="btn btn-xs btn-warning text-white font-bold w-full">Verify & Isi Otomatis</button>
+            </div>
+
+            <label class="text-xs font-bold pt-1">Nama Lengkap Pemesan</label>
+            <input type="text" id="customer-name" oninput="this.value = this.value.toUpperCase()" placeholder="CONTOH: BUDI SANTOSO" class="input input-bordered input-sm w-full text-xs uppercase font-bold">
         </div>
 
         <div>
@@ -42,12 +53,12 @@
             </div>
             <div class="modal-action flex gap-2">
                 <button onclick="closeCartModal()" class="btn btn-sm btn-ghost flex-1">Batal</button>
-                <button onclick="submitSelfOrder()" class="btn btn-sm btn-success text-white font-bold flex-1">Kirim Pesanan (Billing Open)</button>
+                <button onclick="submitSelfOrder()" class="btn btn-sm btn-success text-white font-bold flex-1">Order</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL STATUS PESANAN DENGAN TOMBOL CLOSE -->
+    <!-- MODAL STATUS / PESANAN AKTIF -->
     <div id="status-modal" class="modal">
         <div class="modal-box max-w-sm space-y-4 text-xs text-center">
             <div class="flex justify-between items-center border-b pb-2">
@@ -57,27 +68,63 @@
             <div class="py-4 bg-base-200 rounded-2xl space-y-2 border">
                 <p class="text-xs opacity-70">No. Order: <b id="st-order-id"># -</b></p>
                 <div id="st-badge-container">
-                    <span class="badge badge-warning text-white font-bold text-sm p-3" id="st-badge-text">Billing Open</span>
+                    <span class="badge badge-warning text-white font-bold text-sm p-3">Billing Open</span>
                 </div>
-                <p class="text-[11px] opacity-80 pt-2" id="st-desc">Pesanan Anda telah masuk ke kasir (Billing Open). Mohon tunggu atau lakukan pembayaran ke kasir jika sudah selesai.</p>
+                <div class="text-left px-3 pt-2">
+                    <p class="font-bold text-[11px] opacity-70 pb-1">Menu yang sudah dipesan:</p>
+                    <div id="st-items-list" class="max-h-32 overflow-y-auto divide-y text-[11px] bg-base-100 p-2 rounded border"></div>
+                </div>
+                <p class="text-[11px] opacity-80 pt-1" id="st-desc">Pesanan aktif. Anda dapat menambah pesanan lagi kapan saja.</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="closeStatusModal()" class="btn btn-sm btn-ghost flex-1">Tutup (Close)</button>
-                <button onclick="location.reload()" class="btn btn-sm btn-success text-white font-bold flex-1">Pesan Lagi</button>
+                <button onclick="closeStatusModal()" class="btn btn-sm btn-ghost flex-1">Tutup</button>
+                <button onclick="closeStatusModal()" class="btn btn-sm btn-success text-white font-bold flex-1">Pesan Lagi</button>
             </div>
         </div>
     </div>
 
     <script>
-        let merchantId = 1, tableNumber = '1', globalMenus = [], cart = [];
+        let merchantId = 1, tableNumber = '1', globalMenus = [], cart = [], activeOrderId = localStorage.getItem('active_order_id') || null, verifiedName = '';
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             merchantId = urlParams.get('merchant') || 1;
             tableNumber = urlParams.get('table') || '1';
             document.getElementById('table-label').innerText = `Meja ${tableNumber}`;
+            if (activeOrderId) { document.getElementById('btn-active-cart').classList.remove('hidden'); }
             loadSelfMenus();
         });
+
+        async function checkWhatsappRegistered(phone) {
+            if (!phone || phone.trim() === '') return;
+            let formatted = phone.trim();
+            if (formatted.startsWith('0')) formatted = '62' + formatted.substring(1);
+
+            try {
+                const res = await fetch('/api/verify-shooper', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone: formatted })
+                });
+                const data = await res.json();
+                const notif = document.getElementById('wa-notification');
+                if (data.success) {
+                    verifiedName = data.name;
+                    document.getElementById('reg-name').innerText = verifiedName;
+                    notif.classList.remove('hidden');
+                } else {
+                    notif.classList.add('hidden');
+                    // Jika belum terdaftar, otomatis teregistrasi saat klik Order
+                }
+            } catch(e) {}
+        }
+
+        function verifyShooperData() {
+            if (verifiedName) {
+                document.getElementById('customer-name').value = verifiedName.toUpperCase();
+                document.getElementById('wa-notification').classList.add('hidden');
+            }
+        }
 
         async function loadSelfMenus() {
             try {
@@ -139,49 +186,59 @@
         }
         function closeCartModal() { document.getElementById('cart-modal').classList.remove('modal-open'); }
 
+        async function openActiveOrderModal() {
+            if (!activeOrderId) return alert('Belum ada pesanan aktif.');
+            showStatusTracker(activeOrderId);
+        }
+
         async function submitSelfOrder() {
             const name = document.getElementById('customer-name').value.trim();
-            if (!name) return alert('Mohon masukkan Nama Pemesan terlebih dahulu!');
+            const whatsapp = document.getElementById('customer-whatsapp').value.trim();
+            if (!name || !whatsapp) return alert('Mohon lengkapi Nama Lengkap dan Nomor WhatsApp!');
 
-            const payload = { merchant_id: merchantId, table_number: tableNumber, customer_name: name, items: cart };
+            const payload = { merchant_id: merchantId, table_number: tableNumber, customer_name: name, customer_whatsapp: whatsapp, items: cart };
             const res = await fetch('/api/self-order', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             const data = await res.json();
             if (data.success) {
+                activeOrderId = data.order_id;
+                localStorage.setItem('active_order_id', activeOrderId);
+                document.getElementById('btn-active-cart').classList.remove('hidden');
+                cart = []; updateCartCount();
                 closeCartModal();
-                showStatusTracker(data.order_id);
+                showStatusTracker(activeOrderId);
             } else {
                 alert(data.error);
             }
         }
 
-        function showStatusTracker(orderId) {
+        async function showStatusTracker(orderId) {
             document.getElementById('st-order-id').innerText = `#${orderId}`;
+            try {
+                const res = await fetch(`/api/self-order/status/${orderId}`);
+                const data = await res.json();
+                const listEl = document.getElementById('st-items-list');
+                listEl.innerHTML = '';
+                if (data.items_summary) {
+                    data.items_summary.split(',').forEach(item => {
+                        listEl.innerHTML += `<div class="py-1">• ${item.trim()}</div>`;
+                    });
+                }
+                const badgeContainer = document.getElementById('st-badge-container');
+                if (data.status === 'completed' || data.status === 'paid') {
+                    badgeContainer.innerHTML = `<span class="badge badge-success text-white font-bold text-base p-4">Lunas</span>`;
+                    localStorage.removeItem('active_order_id');
+                    activeOrderId = null;
+                    document.getElementById('btn-active-cart').classList.add('hidden');
+                } else {
+                    badgeContainer.innerHTML = `<span class="badge badge-warning text-white font-bold text-base p-4">Billing Open</span>`;
+                }
+            } catch(e) {}
+
             document.getElementById('status-modal').classList.add('modal-open');
-            pollOrderStatus(orderId);
         }
 
         function closeStatusModal() {
             document.getElementById('status-modal').classList.remove('modal-open');
-        }
-
-        function pollOrderStatus(orderId) {
-            const interval = setInterval(async () => {
-                try {
-                    const res = await fetch(`/api/self-order/status/${orderId}`);
-                    const data = await res.json();
-                    const badgeContainer = document.getElementById('st-badge-container');
-                    const descEl = document.getElementById('st-desc');
-
-                    if (data.status === 'completed' || data.status === 'paid') {
-                        badgeContainer.innerHTML = `<span class="badge badge-success text-white font-bold text-base p-4">PAID (Lunas)</span>`;
-                        descEl.innerText = `Pembayaran telah diterima oleh kasir. Terima kasih telah bersantap di sini! 🙏✨`;
-                        clearInterval(interval);
-                    } else {
-                        badgeContainer.innerHTML = `<span class="badge badge-warning text-white font-bold text-base p-4">Billing Open</span>`;
-                        descEl.innerText = `Pesanan aktif di meja ${tableNumber}. Menunggu pelunasan/pembayaran di kasir.`;
-                    }
-                } catch(e) {}
-            }, 3000);
         }
     </script>
 </body>

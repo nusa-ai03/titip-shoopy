@@ -29,7 +29,7 @@
             <input type="tel" id="customer-whatsapp" onblur="checkWhatsappRegistered(this.value)" placeholder="Contoh: 081234567890" class="input input-bordered input-sm w-full text-xs font-bold">
             
             <div id="wa-notification" class="p-2 bg-warning/20 border border-warning rounded-xl hidden space-y-1">
-                <p class="text-[11px] font-bold text-warning-content">⚠️ Nomor WA ini sudah terdaftar atas nama: <span id="reg-name" class="underline"></span></p>
+                <p class="text-[11px] font-bold text-warning-content">⚠️ Nomor WA terdaftar atas nama: <span id="reg-name" class="underline"></span></p>
                 <button onclick="verifyShooperData()" class="btn btn-xs btn-warning text-white font-bold w-full">Verify & Isi Otomatis</button>
             </div>
 
@@ -58,25 +58,30 @@
         </div>
     </div>
 
-    <!-- MODAL STATUS / PESANAN AKTIF -->
+    <!-- MODAL STATUS / PESANAN AKTIF DENGAN FITUR UBAH QTY & HAPUS -->
     <div id="status-modal" class="modal">
-        <div class="modal-box max-w-sm space-y-4 text-xs text-center">
+        <div class="modal-box max-w-sm space-y-4 text-xs">
             <div class="flex justify-between items-center border-b pb-2">
                 <h3 class="font-bold text-base text-emerald-700">📋 Status Pesanan Meja</h3>
                 <button onclick="closeStatusModal()" class="btn btn-xs btn-circle btn-ghost font-bold text-sm">✕</button>
             </div>
-            <div class="py-4 bg-base-200 rounded-2xl space-y-2 border">
+            <div class="py-3 bg-base-200 rounded-2xl space-y-2 border px-3 text-center">
                 <p class="text-xs opacity-70">No. Order: <b id="st-order-id"># -</b></p>
                 <div id="st-badge-container">
                     <span class="badge badge-warning text-white font-bold text-sm p-3">Billing Open</span>
                 </div>
-                <div class="text-left px-3 pt-2">
-                    <p class="font-bold text-[11px] opacity-70 pb-1">Menu yang sudah dipesan:</p>
-                    <div id="st-items-list" class="max-h-32 overflow-y-auto divide-y text-[11px] bg-base-100 p-2 rounded border"></div>
-                </div>
-                <p class="text-[11px] opacity-80 pt-1" id="st-desc">Pesanan aktif. Anda dapat menambah pesanan lagi kapan saja.</p>
             </div>
-            <div class="flex gap-2">
+            
+            <div class="space-y-1">
+                <p class="font-bold text-[11px] opacity-70">Daftar Menu Pesanan Anda (Dapat diubah Qty / Dihapus):</p>
+                <div id="st-items-list" class="max-h-48 overflow-y-auto divide-y text-xs bg-base-100 p-2 rounded border space-y-2"></div>
+            </div>
+
+            <div class="flex justify-between font-black text-sm border-t pt-2">
+                <span>Total Estimasi:</span><span id="st-grand-total" class="text-emerald-700">Rp 0</span>
+            </div>
+
+            <div class="modal-action flex gap-2">
                 <button onclick="closeStatusModal()" class="btn btn-sm btn-ghost flex-1">Tutup</button>
                 <button onclick="closeStatusModal()" class="btn btn-sm btn-success text-white font-bold flex-1">Pesan Lagi</button>
             </div>
@@ -84,7 +89,7 @@
     </div>
 
     <script>
-        let merchantId = 1, tableNumber = '1', globalMenus = [], cart = [], activeOrderId = localStorage.getItem('active_order_id') || null, verifiedName = '';
+        let merchantId = 1, tableNumber = '1', globalMenus = [], cart = [], activeOrderId = localStorage.getItem('active_order_id') || null, verifiedName = '', activeOrderItems = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -114,7 +119,6 @@
                     notif.classList.remove('hidden');
                 } else {
                     notif.classList.add('hidden');
-                    // Jika belum terdaftar, otomatis teregistrasi saat klik Order
                 }
             } catch(e) {}
         }
@@ -163,8 +167,18 @@
 
         function addToCart(id, name, price) {
             const ex = cart.find(i => i.menu_id === id);
-            if (ex) ex.quantity += 1; else cart.push({ menu_id: id, name, price, quantity: 1 });
+            if (ex) ex.quantity += 1; else cart.push({ menu_id: id, name, price: parseFloat(price), quantity: 1 });
             updateCartCount();
+        }
+
+        function updateQtyCart(id, delta) {
+            const item = cart.find(i => i.menu_id === id);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) cart = cart.filter(i => i.menu_id !== id);
+            }
+            updateCartCount();
+            openCartModal();
         }
 
         function updateCartCount() {
@@ -179,7 +193,22 @@
             let gt = 0;
             cart.forEach(i => {
                 let sub = i.price * i.quantity; gt += sub;
-                container.innerHTML += `<div class="py-1 flex justify-between"><span>${i.quantity}x ${i.name}</span><span class="font-bold">Rp ${sub.toLocaleString('id-ID')}</span></div>`;
+                container.innerHTML += `
+                    <div class="py-2 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">${i.name}</p>
+                            <p class="opacity-70">Rp ${i.price.toLocaleString('id-ID')} x ${i.quantity}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black">Rp ${sub.toLocaleString('id-ID')}</span>
+                            <div class="join border">
+                                <button onclick="updateQtyCart(${i.menu_id}, -1)" class="btn btn-xs join-item">-</button>
+                                <button class="btn btn-xs join-item btn-disabled">${i.quantity}</button>
+                                <button onclick="updateQtyCart(${i.menu_id}, 1)" class="btn btn-xs join-item">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
             });
             document.getElementById('cart-grand-total').innerText = `Rp ${gt.toLocaleString('id-ID')}`;
             document.getElementById('cart-modal').classList.add('modal-open');
@@ -216,13 +245,10 @@
             try {
                 const res = await fetch(`/api/self-order/status/${orderId}`);
                 const data = await res.json();
-                const listEl = document.getElementById('st-items-list');
-                listEl.innerHTML = '';
-                if (data.items_summary) {
-                    data.items_summary.split(',').forEach(item => {
-                        listEl.innerHTML += `<div class="py-1">• ${item.trim()}</div>`;
-                    });
-                }
+                activeOrderItems = data.items || [];
+                renderActiveOrderItems();
+                
+                document.getElementById('st-grand-total').innerText = `Rp ${parseFloat(data.total_price).toLocaleString('id-ID')}`;
                 const badgeContainer = document.getElementById('st-badge-container');
                 if (data.status === 'completed' || data.status === 'paid') {
                     badgeContainer.innerHTML = `<span class="badge badge-success text-white font-bold text-base p-4">Lunas</span>`;
@@ -235,6 +261,56 @@
             } catch(e) {}
 
             document.getElementById('status-modal').classList.add('modal-open');
+        }
+
+        function renderActiveOrderItems() {
+            const listEl = document.getElementById('st-items-list');
+            listEl.innerHTML = '';
+            if (activeOrderItems.length === 0) {
+                listEl.innerHTML = '<p class="text-center py-2 opacity-60">Tidak ada item.</p>';
+                return;
+            }
+            activeOrderItems.forEach(item => {
+                let sub = item.price * item.quantity;
+                listEl.innerHTML += `
+                    <div class="py-1.5 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">${item.name}</p>
+                            <p class="text-[10px] opacity-70">Rp ${item.price.toLocaleString('id-ID')} x ${item.quantity}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-emerald-700">Rp ${sub.toLocaleString('id-ID')}</span>
+                            <div class="join border">
+                                <button onclick="updateActiveItemQty(${item.menu_id}, -1)" class="btn btn-xs join-item">-</button>
+                                <button class="btn btn-xs join-item btn-disabled">${item.quantity}</button>
+                                <button onclick="updateActiveItemQty(${item.menu_id}, 1)" class="btn btn-xs join-item">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function updateActiveItemQty(menuId, delta) {
+            const item = activeOrderItems.find(i => i.menu_id === menuId);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) {
+                    activeOrderItems = activeOrderItems.filter(i => i.menu_id !== menuId);
+                }
+            }
+            // Kirim pembaruan ke server
+            const payload = { order_id: activeOrderId, items: activeOrderItems };
+            const res = await fetch('/api/self-order/update-items', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('st-grand-total').innerText = `Rp ${parseFloat(data.total_price).toLocaleString('id-ID')}`;
+                renderActiveOrderItems();
+            }
         }
 
         function closeStatusModal() {

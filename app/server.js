@@ -554,7 +554,6 @@ app.post('/api/self-order', async (req, res) => {
     if (formattedWa.startsWith('0')) formattedWa = '62' + formattedWa.substring(1);
     let upperName = (customer_name || `TAMU MEJA ${table_number}`).trim().toUpperCase();
 
-    // Auto registrasi shooper baru jika belum terdaftar, atau ambil ID jika sudah terdaftar
     let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [formattedWa]);
     let customerId;
     if (customerRes.rows.length === 0) {
@@ -610,6 +609,39 @@ app.post('/api/self-order', async (req, res) => {
   } finally { client.release(); }
 });
 
+// Endpoint untuk update atau menghapus item pesanan self-order oleh pembeli
+app.post('/api/self-order/update-items', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { order_id, items } = req.body;
+    if (!order_id) return res.status(400).json({ error: 'Order ID tidak ditemukan' });
+
+    await client.query('BEGIN');
+    // Hapus item lama untuk order tersebut
+    await client.query('DELETE FROM order_items WHERE order_id = $1', [order_id]);
+
+    let newSubtotal = 0;
+    if (items && items.length > 0) {
+      for (const i of items) {
+        newSubtotal += parseFloat(i.price) * i.quantity;
+        await client.query(
+          `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
+          [order_id, i.menu_id, i.quantity, i.price]
+        );
+      }
+    }
+
+    // Update total harga order
+    await client.query('UPDATE orders SET total_price = $1 WHERE id = $2', [newSubtotal, order_id]);
+    await client.query('COMMIT');
+
+    res.json({ success: true, total_price: newSubtotal });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
+
 app.post('/api/verify-shooper', async (req, res) => {
   try {
     const { phone } = req.body;
@@ -628,9 +660,26 @@ app.post('/api/verify-shooper', async (req, res) => {
 app.get('/api/self-order/status/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
-    const resOrder = await pool.query('SELECT o.id, o.status, o.total_price, o.table_number, o.customer_name, STRING_AGG(CONCAT(oi.quantity, \'x \', mn.name), \', \') AS items_summary FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN menus mn ON oi.menu_id = mn.id WHERE o.id = $1 GROUP BY o.id, o.status, o.total_price, o.table_number, o.customer_name', [orderId]);
+    const resOrder = await pool.query(`
+      SELECT o.id, o.status, o.total_price, o.table_number, o.customer_name, 
+             COALESCE(json_agg(json_build_object('menu_id', oi.menu_id, 'name', mn.name, 'quantity', oi.quantity, 'price', oi.price_per_item))::text, '[]') AS items_detail
+      FROM orders o 
+      JOIN order_items oi ON oi.order_id = o.id 
+      JOIN menus mn ON oi.menu_id = mn.id 
+      WHERE o.id = $1 
+      GROUP BY o.id, o.status, o.total_price, o.table_number, o.customer_name
+    `, [orderId]);
+
     if (resOrder.rows.length === 0) return res.status(404).json({ error: 'Pesanan tidak ditemukan' });
-    res.json(resOrder.rows[0]);
+    const row = resOrder.rows[0];
+    res.json({
+      id: row.id,
+      status: row.status,
+      total_price: row.total_price,
+      table_number: row.table_number,
+      customer_name: row.customer_name,
+      items: JSON.parse(row.items_detail)
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

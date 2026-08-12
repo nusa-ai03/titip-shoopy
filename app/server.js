@@ -522,16 +522,17 @@ app.get('/api/admin/menus', async (req, res) => {
 
 app.post('/api/admin/menus', async (req, res) => {
   try {
-    const { id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos } = req.body;
+    const { id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos, stock } = req.body;
     const finalImg = image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
     const pubWeb = publish_web !== undefined ? publish_web : true;
     const pubPos = publish_pos !== undefined ? publish_pos : true;
     const avail = is_available !== undefined ? is_available : true;
+    const finalStock = stock !== undefined && stock !== '' ? parseInt(stock) : 100;
 
     if (id) {
-      await pool.query('UPDATE menus SET merchant_id=$1, name=$2, price=$3, cost_price=$4, runner_fee=$5, shooper_promo=$6, markup_price=$7, image_url=$8, is_available=$9, publish_web=$10, publish_pos=$11 WHERE id=$12', [merchant_id, name, selling_price, cost_price, runner_fee, shooper_promo, markup_price, finalImg, avail, pubWeb, pubPos, id]);
+      await pool.query('UPDATE menus SET merchant_id=$1, name=$2, price=$3, cost_price=$4, runner_fee=$5, shooper_promo=$6, markup_price=$7, image_url=$8, is_available=$9, publish_web=$10, publish_pos=$11, stock=$12 WHERE id=$13', [merchant_id, name, selling_price, cost_price, runner_fee, shooper_promo, markup_price, finalImg, avail, pubWeb, pubPos, finalStock, id]);
     } else {
-      await pool.query('INSERT INTO menus (merchant_id, name, price, cost_price, runner_fee, shooper_promo, markup_price, fee_per_item, image_url, is_available, publish_web, publish_pos, stock) VALUES ($1, $2, $3, $4, $5, $6, $7, 1000, $8, $9, $10, $11, 100)', [merchant_id, name, selling_price || 0, cost_price || 0, runner_fee || 0, shooper_promo || 0, markup_price || 0, finalImg, avail, pubWeb, pubPos]);
+      await pool.query('INSERT INTO menus (merchant_id, name, price, cost_price, runner_fee, shooper_promo, markup_price, fee_per_item, image_url, is_available, publish_web, publish_pos, stock) VALUES ($1, $2, $3, $4, $5, $6, $7, 1000, $8, $9, $10, $11, $12)', [merchant_id, name, selling_price || 0, cost_price || 0, runner_fee || 0, shooper_promo || 0, markup_price || 0, finalImg, avail, pubWeb, pubPos, finalStock]);
     }
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -729,7 +730,6 @@ app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
     const merchant = mRes.rows[0];
     const menuRes = await pool.query('SELECT * FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [cleanId]);
     
-    // Query History yang diisolasi ketat berdasarkan merchant_id item menunya
     const orderRes = await pool.query(`
       SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'CASH') AS payment_method, o.created_at, u.name AS shooper_name, u.phone_number, u.department_location, o.table_number, o.customer_name, o.customer_whatsapp,
              (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
@@ -754,7 +754,6 @@ app.get('/api/merchant/menus/:merchantId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint Analitik Laporan Terisolasi
 app.get('/api/merchant/:merchantId/reports', async (req, res) => {
     const { merchantId } = req.params;
     const cleanId = merchantId.split(':')[0];
@@ -809,7 +808,6 @@ app.get('/api/merchant/:merchantId/reports', async (req, res) => {
     }
 });
 
-// Endpoint Download Excel (CSV) Detail Transaksi Terisolasi
 app.get('/api/merchant/:merchantId/export-excel', async (req, res) => {
     const { merchantId } = req.params;
     const cleanId = merchantId.split(':')[0];

@@ -96,16 +96,63 @@
                     <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi.</p></div>
                 </div>
 
-                <!-- 3. LAPORAN -->
+                <!-- 3. LAPORAN & ANALITIK KEUANGAN LENGKAP -->
                 <div id="sec-report" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
-                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Laporan Penjualan Warung</span><button onclick="loadMerchantReport()" class="btn btn-xs btn-outline btn-success">Refresh</button></div>
-                    <div id="merchant-report-list" class="flex-1 overflow-y-auto space-y-2 divide-y text-xs"><p class="text-xs opacity-70 text-center py-10">Memuat laporan...</p></div>
+                    <div class="flex justify-between items-center text-xs font-bold border-b pb-2">
+                        <span>Laporan Keuangan & Analitik</span>
+                        <button onclick="downloadExcelReport()" class="btn btn-xs btn-success text-white font-bold">📥 Download Excel</button>
+                    </div>
+
+                    <!-- Filter Rentang Waktu -->
+                    <div class="bg-base-200 p-2 rounded-xl grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <label class="font-bold text-[10px] opacity-70">Dari Tanggal:</label>
+                            <input type="date" id="rep-start-date" class="input input-bordered input-xs w-full">
+                        </div>
+                        <div>
+                            <label class="font-bold text-[10px] opacity-70">Sampai Tanggal:</label>
+                            <div class="flex gap-1">
+                                <input type="date" id="rep-end-date" class="input input-bordered input-xs w-full">
+                                <button onclick="loadMerchantReport()" class="btn btn-xs btn-primary font-bold">Cari</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+                        <!-- Cards Statistik Utama -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl space-y-1">
+                                <p class="text-[10px] text-emerald-800 font-bold uppercase">Total Omzet</p>
+                                <p id="rep-total-rev" class="text-sm font-black text-emerald-900">Rp 0</p>
+                                <p id="rep-total-ord" class="text-[10px] opacity-70">0 Transaksi</p>
+                            </div>
+                            <div class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl space-y-1">
+                                <p class="text-[10px] text-amber-800 font-bold uppercase">Estimasi Net Profit</p>
+                                <p id="rep-net-profit" class="text-sm font-black text-amber-900">Rp 0</p>
+                                <p class="text-[10px] opacity-70">Setelah dikurangi modal & fee</p>
+                            </div>
+                        </div>
+
+                        <!-- Cards Jenis Pembeli & Pembayaran -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl space-y-1">
+                                <p class="text-[10px] text-blue-800 font-bold uppercase">Tipe Pembeli</p>
+                                <div class="flex justify-between text-[11px] font-bold"><span>Walk-In POS:</span><span id="rep-walkin-rev">Rp 0</span></div>
+                                <div class="flex justify-between text-[11px] font-bold"><span>Online Meja:</span><span id="rep-online-rev">Rp 0</span></div>
+                            </div>
+                            <div class="bg-purple-50 border border-purple-200 p-2.5 rounded-xl space-y-1">
+                                <p class="text-[10px] text-purple-800 font-bold uppercase">Metode Bayar</p>
+                                <div class="flex justify-between text-[11px] font-bold"><span>CASH:</span><span id="rep-cash-rev">Rp 0</span></div>
+                                <div class="flex justify-between text-[11px] font-bold"><span>QRIS:</span><span id="rep-qris-rev">Rp 0</span></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL QR CODE MEJA (DENGAN CONTAINER YANG LENGKAP) -->
+    <!-- MODAL QR CODE MEJA -->
     <div id="tables-modal" class="modal">
         <div class="modal-box max-w-md space-y-3 text-xs">
             <h3 class="font-bold text-sm text-emerald-700">🪑 Daftar Meja & Link Self-Order (QR Code)</h3>
@@ -320,32 +367,45 @@
         }
 
         async function loadMerchantReport() {
-            const list = document.getElementById('merchant-report-list');
-            list.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Memuat laporan...</p>';
             let cleanId = currentMerchant.id;
             if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
 
+            const startDate = document.getElementById('rep-start-date').value;
+            const endDate = document.getElementById('rep-end-date').value;
+
+            let url = `/api/merchant/${cleanId}/reports?`;
+            if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}`;
+
             try {
-                const res = await fetch(`/api/merchant/report/${cleanId}`);
-                const rows = await res.json();
-                list.innerHTML = '';
-                if (rows.length === 0) { list.innerHTML = '<p class="text-xs opacity-60 text-center py-6">Belum ada transaksi.</p>'; return; }
-                rows.forEach(r => {
-                    list.innerHTML += `
-                        <div class="p-2 bg-base-100 border rounded space-y-1">
-                            <div class="flex justify-between font-bold">
-                                <span class="text-emerald-700">Order #${r.order_id} (${r.payment_method})</span>
-                                <span class="badge badge-success badge-xs text-white">Lunas</span>
-                            </div>
-                            <p class="opacity-80">${r.items_summary}</p>
-                            <div class="flex justify-between font-black pt-1">
-                                <span>Rp ${parseFloat(r.total_price).toLocaleString('id-ID')}</span>
-                                <span class="text-[10px] opacity-60">${new Date(r.created_at).toLocaleString('id-ID')}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-            } catch(e) { list.innerHTML = '<p class="text-xs text-error text-center py-6">Gagal memuat laporan.</p>'; }
+                const repRes = await fetch(url);
+                const repData = await repRes.json();
+
+                if (repData.success) {
+                    const sum = repData.summary;
+                    document.getElementById('rep-total-rev').innerText = `Rp ${parseFloat(sum.total_revenue || 0).toLocaleString('id-ID')}`;
+                    document.getElementById('rep-total-ord').innerText = `${sum.total_orders || 0} Transaksi Lunas`;
+                    document.getElementById('rep-net-profit').innerText = `Rp ${parseFloat(sum.net_profit || 0).toLocaleString('id-ID')}`;
+                    document.getElementById('rep-walkin-rev').innerText = `Rp ${parseFloat(sum.walkin_revenue || 0).toLocaleString('id-ID')}`;
+                    document.getElementById('rep-online-rev').innerText = `Rp ${parseFloat(sum.online_revenue || 0).toLocaleString('id-ID')}`;
+                    document.getElementById('rep-cash-rev').innerText = `Rp ${parseFloat(sum.cash_revenue || 0).toLocaleString('id-ID')}`;
+                    document.getElementById('rep-qris-rev').innerText = `Rp ${parseFloat(sum.qris_revenue || 0).toLocaleString('id-ID')}`;
+                }
+            } catch(e) {
+                console.error('Gagal memuat laporan:', e);
+            }
+        }
+
+        function downloadExcelReport() {
+            let cleanId = currentMerchant.id;
+            if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
+
+            const startDate = document.getElementById('rep-start-date').value;
+            const endDate = document.getElementById('rep-end-date').value;
+
+            let url = `/api/merchant/${cleanId}/export-excel?`;
+            if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}`;
+
+            window.open(url, '_blank');
         }
 
         function renderPosMenus() {

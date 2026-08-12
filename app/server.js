@@ -259,6 +259,38 @@ app.post('/api/auth/login-merchant', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Endpoint Pendaftaran Mandiri Merchant Baru
+app.post('/api/merchants/register', async (req, res) => {
+    try {
+        const { name, phone_number, address, location_name, owner_name, map_link, open_time, close_time, pin } = req.body;
+        if (!name || !phone_number) {
+            return res.status(400).json({ error: 'Nama warung dan nomor WhatsApp wajib diisi!' });
+        }
+
+        let formattedPhone = phone_number.trim();
+        if (formattedPhone.startsWith('0')) formattedPhone = '62' + formattedPhone.substring(1);
+
+        const dup = await pool.query('SELECT name FROM merchants WHERE phone_number = $1', [formattedPhone]);
+        if (dup.rows.length > 0) {
+            return res.status(400).json({ error: `Nomor WA sudah terdaftar untuk warung ${dup.rows[0].name}!` });
+        }
+
+        const defaultPin = pin ? pin.trim() : '123456';
+
+        const result = await pool.query(
+            `INSERT INTO merchants (name, phone_number, address, location_name, owner_name, map_link, open_time, close_time, is_active, is_open, pin)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, TRUE, $9)
+             RETURNING id, name`,
+            [name.trim(), formattedPhone, address || '', location_name || '', owner_name || '', map_link || '', open_time || '07:00', close_time || '17:00', defaultPin]
+        );
+
+        res.json({ success: true, merchant: result.rows[0] });
+    } catch (err) {
+        console.error('Error registering merchant:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/merchant/update-store', async (req, res) => {
   try {
     const { merchant_id, name, address, location_name, owner_name, map_link, open_time, close_time, phone } = req.body;
@@ -500,7 +532,7 @@ app.post('/api/admin/menus', async (req, res) => {
     if (id) {
       await pool.query('UPDATE menus SET merchant_id=$1, name=$2, price=$3, cost_price=$4, runner_fee=$5, shooper_promo=$6, markup_price=$7, image_url=$8, is_available=$9, publish_web=$10, publish_pos=$11 WHERE id=$12', [merchant_id, name, selling_price, cost_price, runner_fee, shooper_promo, markup_price, finalImg, avail, pubWeb, pubPos, id]);
     } else {
-      await pool.query('INSERT INTO menus (merchant_id, name, price, cost_price, runner_fee, shooper_promo, markup_price, fee_per_item, image_url, is_available, publish_web, publish_pos) VALUES ($1, $2, $3, $4, $5, $6, $7, 1000, $8, $9, $10, $11)', [merchant_id, name, selling_price || 0, cost_price || 0, runner_fee || 0, shooper_promo || 0, markup_price || 0, finalImg, avail, pubWeb, pubPos]);
+      await pool.query('INSERT INTO menus (merchant_id, name, price, cost_price, runner_fee, shooper_promo, markup_price, fee_per_item, image_url, is_available, publish_web, publish_pos, stock) VALUES ($1, $2, $3, $4, $5, $6, $7, 1000, $8, $9, $10, $11, 100)', [merchant_id, name, selling_price || 0, cost_price || 0, runner_fee || 0, shooper_promo || 0, markup_price || 0, finalImg, avail, pubWeb, pubPos]);
     }
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -585,6 +617,11 @@ app.post('/api/self-order', async (req, res) => {
           `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
           [orderId, i.menu_id, i.quantity, i.price]
         );
+        // Otomatis kurangi stok
+        await client.query(
+          `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
+          [i.quantity, i.menu_id]
+        );
       }
     } else {
       const orderRes = await client.query(
@@ -598,6 +635,11 @@ app.post('/api/self-order', async (req, res) => {
           `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
           [orderId, i.menu_id, i.quantity, i.price]
         );
+        // Otomatis kurangi stok
+        await client.query(
+          `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
+          [i.quantity, i.menu_id]
+        );
       }
     }
 
@@ -609,7 +651,6 @@ app.post('/api/self-order', async (req, res) => {
   } finally { client.release(); }
 });
 
-// Endpoint untuk update atau menghapus item pesanan self-order oleh pembeli
 app.post('/api/self-order/update-items', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -617,7 +658,6 @@ app.post('/api/self-order/update-items', async (req, res) => {
     if (!order_id) return res.status(400).json({ error: 'Order ID tidak ditemukan' });
 
     await client.query('BEGIN');
-    // Hapus item lama untuk order tersebut
     await client.query('DELETE FROM order_items WHERE order_id = $1', [order_id]);
 
     let newSubtotal = 0;
@@ -631,7 +671,6 @@ app.post('/api/self-order/update-items', async (req, res) => {
       }
     }
 
-    // Update total harga order
     await client.query('UPDATE orders SET total_price = $1 WHERE id = $2', [newSubtotal, order_id]);
     await client.query('COMMIT');
 
@@ -683,7 +722,7 @@ app.get('/api/self-order/status/:orderId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================== API MERCHANT DASHBOARD & REPORT ====================
+// ==================== API MERCHANT DASHBOARD & ADVANCED REPORTS ====================
 app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
   try {
     const { merchantId } = req.params;
@@ -715,20 +754,109 @@ app.get('/api/merchant/menus/:merchantId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/merchant/report/:merchantId', async (req, res) => {
-  try {
+// Endpoint Analitik Laporan Lanjutan
+app.get('/api/merchant/:merchantId/reports', async (req, res) => {
     const { merchantId } = req.params;
     const cleanId = merchantId.split(':')[0];
-    const reportRes = await pool.query(`
-      SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'COD') AS payment_method, o.created_at, u.name AS shooper_name,
-             (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
-      FROM orders o 
-      JOIN users u ON o.shooper_id = u.id 
-      WHERE (u.phone_number = 'POS_WALK_IN_' || $1 OR o.table_number IS NOT NULL)
-      ORDER BY o.id DESC LIMIT 50
-    `, [cleanId]);
-    res.json(reportRes.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { startDate, endDate } = req.query;
+
+    try {
+        let dateFilter = '';
+        let queryParams = [cleanId];
+        let paramIndex = 2;
+
+        if (startDate && endDate) {
+            dateFilter += ` AND o.created_at >= $${paramIndex}::timestamp AND o.created_at <= ($${paramIndex+1}::timestamp + INTERVAL '1 day')`;
+            queryParams.push(startDate, endDate);
+            paramIndex += 2;
+        }
+
+        const summaryQuery = `
+            SELECT 
+                COUNT(DISTINCT o.id) as total_orders,
+                COALESCE(SUM(o.total_price), 0) as total_revenue,
+                COALESCE(SUM(CASE WHEN o.payment_method = 'CASH' THEN o.total_price ELSE 0 END), 0) as cash_revenue,
+                COALESCE(SUM(CASE WHEN o.payment_method = 'QRIS' THEN o.total_price ELSE 0 END), 0) as qris_revenue,
+                COALESCE(SUM(CASE WHEN o.table_number IS NULL THEN o.total_price ELSE 0 END), 0) as walkin_revenue,
+                COALESCE(SUM(CASE WHEN o.table_number IS NOT NULL THEN o.total_price ELSE 0 END), 0) as online_revenue,
+                COALESCE(SUM(oi.quantity * COALESCE(mi.cost_price, 0)), 0) as total_modal,
+                COALESCE(SUM(oi.quantity * COALESCE(mi.runner_fee, 0)), 0) as total_runner_fee,
+                COALESCE(SUM(oi.quantity * COALESCE(mi.fee_per_item, 0)), 0) as total_platform_fee
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN menus mi ON oi.menu_id = mi.id
+            WHERE mi.merchant_id = $1 AND o.status = 'completed' ${dateFilter}
+        `;
+        const summaryResult = await pool.query(summaryQuery, queryParams);
+        const sum = summaryResult.rows[0];
+
+        let grossRev = parseFloat(sum.total_revenue || 0);
+        let modal = parseFloat(sum.total_modal || 0);
+        let runnerFee = parseFloat(sum.total_runner_fee || 0);
+        let platformFee = parseFloat(sum.total_platform_fee || 0);
+        let netProfit = grossRev - modal - runnerFee - platformFee;
+
+        res.json({
+            success: true,
+            summary: {
+                ...sum,
+                net_profit: netProfit > 0 ? netProfit : 0
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching reports:', err);
+        res.status(500).json({ success: false, error: 'Gagal mengambil data laporan' });
+    }
+});
+
+// Endpoint Download Excel (CSV) Detail Transaksi Keseluruhan
+app.get('/api/merchant/:merchantId/export-excel', async (req, res) => {
+    const { merchantId } = req.params;
+    const cleanId = merchantId.split(':')[0];
+    const { startDate, endDate } = req.query;
+
+    try {
+        let dateFilter = '';
+        let queryParams = [cleanId];
+        if (startDate && endDate) {
+            dateFilter = ` AND o.created_at >= $2::timestamp AND o.created_at <= ($3::timestamp + INTERVAL '1 day')`;
+            queryParams.push(startDate, endDate);
+        }
+
+        const query = `
+            SELECT 
+                o.id as order_id,
+                o.created_at,
+                COALESCE(o.table_number::text, 'Walk-In POS') as tipe_pesanan,
+                COALESCE(o.customer_name, u.name, 'Kasir Umum') as nama_pembeli,
+                u.name as petugas_kasir,
+                o.payment_method,
+                o.status,
+                STRING_AGG(CONCAT(oi.quantity, 'x ', mi.name, ' (Rp', oi.price_per_item, ')'), ', ') as rincian_item,
+                o.total_price
+            FROM orders o
+            JOIN users u ON o.shooper_id = u.id
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN menus mi ON oi.menu_id = mi.id
+            WHERE mi.merchant_id = $1 ${dateFilter}
+            GROUP BY o.id, o.created_at, o.table_number, o.customer_name, u.name, o.payment_method, o.status, o.total_price
+            ORDER BY o.id DESC
+        `;
+        const result = await pool.query(query, queryParams);
+
+        let csvContent = "ID Order,Tanggal,Tipe Pesanan,Nama Pembeli,Petugas Kasir,Metode Pembayaran,Status,Rincian Item,Total Harga\n";
+        result.rows.forEach(r => {
+            let cleanItems = `"${(r.rincian_item || '').replace(/"/g, '""')}"`;
+            csvContent += `${r.order_id},"${r.created_at}","${r.tipe_pesanan}","${r.nama_pembeli}","${r.petugas_kasir}",${r.payment_method},${r.status},${cleanItems},${r.total_price}\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=Laporan-Transaksi-Merchant-${cleanId}.csv`);
+        res.status(200).send(csvContent);
+    } catch (err) {
+        console.error('Error exporting excel:', err);
+        res.status(500).send('Gagal mengekspor data');
+    }
 });
 
 app.get('/api/merchant/order-items/:orderId', async (req, res) => {
@@ -770,6 +898,13 @@ app.post('/api/merchant/pos-checkout', async (req, res) => {
         `UPDATE orders SET status = 'completed', payment_method = $1, total_price = $2, is_paid = TRUE WHERE id = $3`,
         [payment_method || 'CASH', finalTotal, orderId]
       );
+      // Kurangi stok untuk item update
+      for (const i of items) {
+        await client.query(
+          `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
+          [i.quantity, i.menu_id]
+        );
+      }
     } else {
       let customerRes = await client.query('SELECT id FROM users WHERE phone_number = $1', [`POS_WALK_IN_${cleanMerchantId}`]);
       let customerId;
@@ -793,6 +928,11 @@ app.post('/api/merchant/pos-checkout', async (req, res) => {
         await client.query(
           `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
           [orderId, i.menu_id, i.quantity, i.price]
+        );
+        // Otomatis kurangi stok
+        await client.query(
+          `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
+          [i.quantity, i.menu_id]
         );
       }
     }

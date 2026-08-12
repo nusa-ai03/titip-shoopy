@@ -63,7 +63,6 @@
                     <a role="tab" onclick="switchPosTab('report')" id="tab-report" class="tab flex-1">📊 Laporan</a>
                 </div>
 
-                <!-- 1. BILLING POS -->
                 <div id="sec-billing" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3">
                     <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>Keranjang Billing</span><button onclick="clearCart()" class="text-error text-[11px] link">Kosongkan</button></div>
                     <div id="cart-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 divide-y"><p class="text-xs opacity-60 text-center py-10">Keranjang kosong.</p></div>
@@ -90,20 +89,17 @@
                     </div>
                 </div>
 
-                <!-- 2. HISTORY -->
                 <div id="sec-orders" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
                     <div class="flex justify-between items-center text-xs font-bold border-b pb-2"><span>History Transaksi POS & Meja</span><span id="order-count-badge" class="badge badge-success badge-xs text-white">0</span></div>
                     <div id="pos-orders-ticket-list" class="flex-1 overflow-y-auto space-y-3 divide-y divide-base-200"><p class="text-xs opacity-70 text-center py-10">Belum ada transaksi.</p></div>
                 </div>
 
-                <!-- 3. LAPORAN & ANALITIK KEUANGAN LENGKAP -->
                 <div id="sec-report" class="flex-1 flex flex-col overflow-hidden p-3 space-y-3 hidden">
                     <div class="flex justify-between items-center text-xs font-bold border-b pb-2">
                         <span>Laporan Keuangan & Analitik</span>
                         <button onclick="downloadExcelReport()" class="btn btn-xs btn-success text-white font-bold">📥 Download Excel</button>
                     </div>
 
-                    <!-- Filter Rentang Waktu -->
                     <div class="bg-base-200 p-2 rounded-xl grid grid-cols-2 gap-2 text-xs">
                         <div>
                             <label class="font-bold text-[10px] opacity-70">Dari Tanggal:</label>
@@ -119,7 +115,6 @@
                     </div>
                     
                     <div class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
-                        <!-- Cards Statistik Utama -->
                         <div class="grid grid-cols-2 gap-2">
                             <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl space-y-1">
                                 <p class="text-[10px] text-emerald-800 font-bold uppercase">Total Omzet</p>
@@ -132,8 +127,6 @@
                                 <p class="text-[10px] opacity-70">Setelah dikurangi modal & fee</p>
                             </div>
                         </div>
-
-                        <!-- Cards Jenis Pembeli & Pembayaran -->
                         <div class="grid grid-cols-2 gap-2">
                             <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl space-y-1">
                                 <p class="text-[10px] text-blue-800 font-bold uppercase">Tipe Pembeli</p>
@@ -146,6 +139,9 @@
                                 <div class="flex justify-between text-[11px] font-bold"><span>QRIS:</span><span id="rep-qris-rev">Rp 0</span></div>
                             </div>
                         </div>
+                        <div id="rep-shift-cards-container" class="grid grid-cols-2 gap-2 pt-1">
+                            <p class="text-xs opacity-60 col-span-full text-center py-2">Memuat data kasir...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -156,7 +152,6 @@
     <div id="tables-modal" class="modal">
         <div class="modal-box max-w-md space-y-3 text-xs">
             <h3 class="font-bold text-sm text-emerald-700">🪑 Daftar Meja & Link Self-Order (QR Code)</h3>
-            <p class="opacity-70">Bagikan link atau cetak QR code untuk setiap meja di warung Anda:</p>
             <div id="tables-list-container" class="space-y-2 max-h-60 overflow-y-auto divide-y">
                 <p class="text-center py-4 opacity-60">Memuat daftar meja...</p>
             </div>
@@ -256,6 +251,9 @@
                     <input type="number" id="fm-runner" placeholder="Runner" class="input input-bordered input-sm w-full">
                     <input type="number" id="fm-promo" placeholder="Promo" class="input input-bordered input-sm w-full">
                     <input type="number" id="fm-markup" placeholder="Markup" class="input input-bordered input-sm w-full">
+                </div>
+                <div class="grid grid-cols-1 gap-2 pt-1">
+                    <input type="number" id="fm-stock" placeholder="Stok Tersedia" class="input input-bordered input-sm w-full font-bold">
                 </div>
                 <div class="space-y-1"><label class="font-bold">Foto Menu</label><input type="file" id="fm-file" accept="image/png, image/jpeg" class="file-input file-input-bordered file-input-xs w-full"></div>
                 
@@ -369,17 +367,13 @@
         async function loadMerchantReport() {
             let cleanId = currentMerchant.id;
             if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
-
             const startDate = document.getElementById('rep-start-date').value;
             const endDate = document.getElementById('rep-end-date').value;
-
             let url = `/api/merchant/${cleanId}/reports?`;
             if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}`;
-
             try {
                 const repRes = await fetch(url);
                 const repData = await repRes.json();
-
                 if (repData.success) {
                     const sum = repData.summary;
                     document.getElementById('rep-total-rev').innerText = `Rp ${parseFloat(sum.total_revenue || 0).toLocaleString('id-ID')}`;
@@ -390,21 +384,16 @@
                     document.getElementById('rep-cash-rev').innerText = `Rp ${parseFloat(sum.cash_revenue || 0).toLocaleString('id-ID')}`;
                     document.getElementById('rep-qris-rev').innerText = `Rp ${parseFloat(sum.qris_revenue || 0).toLocaleString('id-ID')}`;
                 }
-            } catch(e) {
-                console.error('Gagal memuat laporan:', e);
-            }
+            } catch(e) {}
         }
 
         function downloadExcelReport() {
             let cleanId = currentMerchant.id;
             if (typeof cleanId === 'string' && cleanId.includes(':')) cleanId = cleanId.split(':')[0];
-
             const startDate = document.getElementById('rep-start-date').value;
             const endDate = document.getElementById('rep-end-date').value;
-
             let url = `/api/merchant/${cleanId}/export-excel?`;
             if (startDate && endDate) url += `startDate=${startDate}&endDate=${endDate}`;
-
             window.open(url, '_blank');
         }
 
@@ -692,7 +681,7 @@
                 let statusBadge = m.is_available ? '✅ Available' : '❌ Sold Out';
                 if (m.publish_web) statusBadge += ' | 🌐 Web';
                 if (m.publish_pos) statusBadge += ' | 💻 POS';
-                list.innerHTML += `<div class="flex justify-between items-center py-2"><div class="flex items-center gap-2"><img src="${m.image_url || m.img}" class="w-10 h-10 object-cover rounded"><div><p class="font-bold">${m.name || m.menu_name}</p><p class="opacity-70">Rp ${parseFloat(m.price || m.selling_price || 0).toLocaleString('id-ID')} | ${statusBadge}</p></div></div><button onclick='editMerchantMenu(${JSON.stringify(m)})' class="btn btn-xs btn-outline btn-success">Edit</button></div>`;
+                list.innerHTML += `<div class="flex justify-between items-center py-2"><div class="flex items-center gap-2"><img src="${m.image_url || m.img}" class="w-10 h-10 object-cover rounded"><div><p class="font-bold">${m.name || m.menu_name}</p><p class="opacity-70">Rp ${parseFloat(m.price || m.selling_price || 0).toLocaleString('id-ID')} | Stok: ${m.stock || 0} | ${statusBadge}</p></div></div><button onclick='editMerchantMenu(${JSON.stringify(m)})' class="btn btn-xs btn-outline btn-success">Edit</button></div>`;
             });
         }
 
@@ -702,6 +691,7 @@
             document.getElementById('fm-cost').value = ''; document.getElementById('fm-sell').value = '';
             document.getElementById('fm-runner').value = ''; document.getElementById('fm-promo').value = '';
             document.getElementById('fm-markup').value = ''; 
+            document.getElementById('fm-stock').value = '100';
             document.getElementById('fm-pubweb').checked = true;
             document.getElementById('fm-pubpos').checked = true;
             document.getElementById('fm-avail').checked = true;
@@ -715,6 +705,7 @@
             document.getElementById('fm-cost').value = m.cost_price || 0; document.getElementById('fm-sell').value = m.price || m.selling_price || 0;
             document.getElementById('fm-runner').value = m.runner_fee || 0; document.getElementById('fm-promo').value = m.shooper_promo || 0;
             document.getElementById('fm-markup').value = m.markup_price || 0;
+            document.getElementById('fm-stock').value = m.stock || 0;
             document.getElementById('fm-pubweb').checked = m.publish_web !== false;
             document.getElementById('fm-pubpos').checked = m.publish_pos !== false;
             document.getElementById('fm-avail').checked = m.is_available === true;
@@ -731,6 +722,7 @@
             const runner_fee = document.getElementById('fm-runner').value;
             const shooper_promo = document.getElementById('fm-promo').value;
             const markup_price = document.getElementById('fm-markup').value;
+            const stock = document.getElementById('fm-stock').value;
             const publish_web = document.getElementById('fm-pubweb').checked;
             const publish_pos = document.getElementById('fm-pubpos').checked;
             const is_available = document.getElementById('fm-avail').checked && !document.getElementById('fm-sold').checked;
@@ -738,16 +730,16 @@
 
             if (fileInput.files.length > 0) {
                 const reader = new FileReader();
-                reader.onload = async function(e) { sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, e.target.result); };
+                reader.onload = async function(e) { sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, stock, e.target.result); };
                 reader.readAsDataURL(fileInput.files[0]);
             } else {
                 const ex = globalMenus.find(m => (m.id || m.menu_id) == id);
-                sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, ex ? (ex.image_url || ex.img) : '');
+                sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, stock, ex ? (ex.image_url || ex.img) : '');
             }
         }
 
-        async function sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, image_url) {
-            const payload = { id: id ? id : null, merchant_id: currentMerchant.id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos };
+        async function sendMenuData(id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, is_available, publish_web, publish_pos, stock, image_url) {
+            const payload = { id: id ? id : null, merchant_id: currentMerchant.id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos, stock };
             const res = await fetch('/api/admin/menus', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             if ((await res.json()).success) { alert('Tersimpan!'); cancelMenuForm(); loadMerchantDashboard(); openProductMaster(); }
         }

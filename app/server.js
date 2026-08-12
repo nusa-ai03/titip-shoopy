@@ -259,6 +259,7 @@ app.post('/api/auth/login-merchant', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Endpoint Pendaftaran Mandiri Merchant
 app.post('/api/merchants/register', async (req, res) => {
     try {
         const { name, phone_number, address, location_name, owner_name, map_link, open_time, close_time, pin } = req.body;
@@ -520,6 +521,7 @@ app.get('/api/admin/menus', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// API Menu dengan Dukungan Stok
 app.post('/api/admin/menus', async (req, res) => {
   try {
     const { id, merchant_id, name, cost_price, selling_price, runner_fee, shooper_promo, markup_price, image_url, is_available, publish_web, publish_pos, stock } = req.body;

@@ -259,7 +259,6 @@ app.post('/api/auth/login-merchant', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint Pendaftaran Mandiri Merchant Baru
 app.post('/api/merchants/register', async (req, res) => {
     try {
         const { name, phone_number, address, location_name, owner_name, map_link, open_time, close_time, pin } = req.body;
@@ -617,7 +616,6 @@ app.post('/api/self-order', async (req, res) => {
           `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
           [orderId, i.menu_id, i.quantity, i.price]
         );
-        // Otomatis kurangi stok
         await client.query(
           `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
           [i.quantity, i.menu_id]
@@ -635,7 +633,6 @@ app.post('/api/self-order', async (req, res) => {
           `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
           [orderId, i.menu_id, i.quantity, i.price]
         );
-        // Otomatis kurangi stok
         await client.query(
           `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
           [i.quantity, i.menu_id]
@@ -722,7 +719,7 @@ app.get('/api/self-order/status/:orderId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==================== API MERCHANT DASHBOARD & ADVANCED REPORTS ====================
+// ==================== API MERCHANT DASHBOARD & ISOLATED HISTORY ====================
 app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
   try {
     const { merchantId } = req.params;
@@ -732,12 +729,15 @@ app.get('/api/merchant/dashboard/:merchantId', async (req, res) => {
     const merchant = mRes.rows[0];
     const menuRes = await pool.query('SELECT * FROM menus WHERE merchant_id = $1 ORDER BY id DESC', [cleanId]);
     
+    // Query History yang diisolasi ketat berdasarkan merchant_id item menunya
     const orderRes = await pool.query(`
       SELECT DISTINCT o.id AS order_id, o.status, o.total_price, COALESCE(o.payment_method, 'CASH') AS payment_method, o.created_at, u.name AS shooper_name, u.phone_number, u.department_location, o.table_number, o.customer_name, o.customer_whatsapp,
              (SELECT STRING_AGG(CONCAT(oi2.quantity, 'x ', mn2.name), ', ') FROM order_items oi2 JOIN menus mn2 ON oi2.menu_id = mn2.id WHERE oi2.order_id = o.id) AS items_summary
       FROM orders o 
       JOIN users u ON o.shooper_id = u.id 
-      WHERE (u.phone_number = 'POS_WALK_IN_' || $1 OR o.table_number IS NOT NULL)
+      JOIN order_items oi ON o.id = oi.order_id
+      JOIN menus mn ON oi.menu_id = mn.id
+      WHERE mn.merchant_id = $1 AND (u.phone_number = 'POS_WALK_IN_' || $1 OR o.table_number IS NOT NULL)
       ORDER BY o.id DESC LIMIT 30
     `, [cleanId]);
 
@@ -754,7 +754,7 @@ app.get('/api/merchant/menus/:merchantId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint Analitik Laporan Lanjutan
+// Endpoint Analitik Laporan Terisolasi
 app.get('/api/merchant/:merchantId/reports', async (req, res) => {
     const { merchantId } = req.params;
     const cleanId = merchantId.split(':')[0];
@@ -809,7 +809,7 @@ app.get('/api/merchant/:merchantId/reports', async (req, res) => {
     }
 });
 
-// Endpoint Download Excel (CSV) Detail Transaksi Keseluruhan
+// Endpoint Download Excel (CSV) Detail Transaksi Terisolasi
 app.get('/api/merchant/:merchantId/export-excel', async (req, res) => {
     const { merchantId } = req.params;
     const cleanId = merchantId.split(':')[0];
@@ -898,7 +898,6 @@ app.post('/api/merchant/pos-checkout', async (req, res) => {
         `UPDATE orders SET status = 'completed', payment_method = $1, total_price = $2, is_paid = TRUE WHERE id = $3`,
         [payment_method || 'CASH', finalTotal, orderId]
       );
-      // Kurangi stok untuk item update
       for (const i of items) {
         await client.query(
           `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
@@ -929,7 +928,6 @@ app.post('/api/merchant/pos-checkout', async (req, res) => {
           `INSERT INTO order_items (order_id, menu_id, quantity, price_per_item) VALUES ($1, $2, $3, $4)`,
           [orderId, i.menu_id, i.quantity, i.price]
         );
-        // Otomatis kurangi stok
         await client.query(
           `UPDATE menus SET stock = GREATEST(0, stock - $1) WHERE id = $2`,
           [i.quantity, i.menu_id]
